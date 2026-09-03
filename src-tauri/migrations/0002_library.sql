@@ -1,0 +1,9 @@
+ALTER TABLE editions ADD COLUMN stored_path TEXT;
+ALTER TABLE editions ADD COLUMN file_size INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE books ADD COLUMN last_page INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE books ADD COLUMN last_opened_at INTEGER;
+
+CREATE TABLE app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);

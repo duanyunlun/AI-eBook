@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="AI-eBook">
+  <rect x="48" y="48" width="928" height="928" rx="224" fill="#f2f3f0"/>
+  <path d="M150 278c132-30 252-5 362 76v456c-110-72-230-96-362-65V278Z" fill="#fff" stroke="#252622" stroke-width="30" stroke-linejoin="round"/>
+  <path d="M874 278c-132-30-252-5-362 76v456c110-72 230-96 362-65V278Z" fill="#fff" stroke="#252622" stroke-width="30" stroke-linejoin="round"/>
+  <path d="M512 354v456" stroke="#087f5b" stroke-width="30" stroke-linecap="round"/>
+
+  <path d="M220 420c69-12 134 1 194 38M220 510c69-12 134 1 194 38M220 600c69-12 134 1 194 38" fill="none" stroke="#b9bdb6" stroke-width="24" stroke-linecap="round"/>
+
+  <path d="M626 454 752 397M626 454l52 132m74-189 54 125M678 586l128-64" fill="none" stroke="#7c8580" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="626" cy="454" r="25" fill="#087f5b"/>
+  <circle cx="752" cy="397" r="25" fill="#087f5b"/>
+  <circle cx="678" cy="586" r="25" fill="#087f5b"/>
+  <circle cx="806" cy="522" r="25" fill="#087f5b"/>
+
+  <path d="M512 194c12 57 41 86 98 98-57 12-86 41-98 98-12-57-41-86-98-98 57-12 86-41 98-98Z" fill="#d85b43" stroke="#252622" stroke-width="18" stroke-linejoin="round"/>
+  <circle cx="512" cy="292" r="17" fill="#fff"/>
+</svg>
