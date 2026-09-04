@@ -1010,7 +1010,7 @@ mod tests {
                     0
                 ))
                 .unwrap(),
-            3
+            SCHEMA_VERSION
         );
     }
 }

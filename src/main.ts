@@ -1,3 +1,4 @@
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { BookRecord } from "./api";
 import { setupPdfReader } from "./reader/pdf-reader";
 import { setupAnnotationResize, setupKnowledgeResize, setupQuestionResize } from "./ui/annotation-resize";
@@ -113,6 +114,17 @@ window.addEventListener("keydown", (event) => {
     elements.knowledgePanel.hidden = true;
   }
 });
-window.addEventListener("beforeunload", reader.destroy);
+let closing = false;
+void getCurrentWindow().onCloseRequested(async (event) => {
+  if (closing) return;
+  event.preventDefault();
+  closing = true;
+  try {
+    await reader.flush();
+  } finally {
+    reader.destroy();
+    await getCurrentWindow().destroy();
+  }
+});
 
 void library.initialize().catch(showError);

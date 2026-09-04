@@ -8,7 +8,7 @@ use rfd::AsyncFileDialog;
 use tauri::{AppHandle, Manager, State};
 
 use crate::{
-    knowledge::{Evidence, KnowledgeEdge, KnowledgeItem, ThreadConversation},
+    knowledge::{Evidence, KnowledgeEdge, KnowledgeItem},
     storage::{BookRecord, KnowledgeStore, StorageError},
 };
 
@@ -161,25 +161,6 @@ pub fn delete_item(app: &AppHandle, store: &KnowledgeStore, id: &str) -> Result<
     let mut index = repository.index()?;
     index.remove_path(&relative)?;
     commit_index(&repository, &mut index, "删除阅读知识")
-}
-
-pub fn archive_thread(
-    app: &AppHandle,
-    store: &KnowledgeStore,
-    thread: &ThreadConversation,
-    book_id: &str,
-    mode: &str,
-) -> Result<(), HistoryError> {
-    let vault = vault_path(app, store)?;
-    let relative = PathBuf::from("sessions").join(format!("{}.json", thread.id));
-    let content = serde_json::to_string_pretty(&serde_json::json!({
-        "schema": 1,
-        "id": thread.id,
-        "book_id": book_id,
-        "mode": mode,
-        "messages": thread.messages,
-    }))?;
-    write_and_commit(&vault, &relative, &content, "更新伴读会话", &[])
 }
 
 fn vault_path(app: &AppHandle, store: &KnowledgeStore) -> Result<PathBuf, HistoryError> {

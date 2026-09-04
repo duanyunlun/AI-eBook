@@ -15,6 +15,7 @@ import {
   type SaveKnowledgeRequest,
 } from "../api";
 import { getCompanionSystemPrompt, getTranslationLanguage } from "./ai-settings";
+import { buildBookSummary } from "../summary";
 
 type CompanionElements = {
   annotationDrawer: HTMLElement;
@@ -289,6 +290,7 @@ export function setupCompanion(
   ): Promise<void> => {
     if (!context) throw new Error("请先选择内容或打开书籍");
     const activeContext = contextBookBound ? { ...context, ...(await getCurrentPageContext()) } : context;
+    const summaryMode = summaryItems.length > 0;
     const currentBookId = activeContext.bookId;
     const related = summaryItems.length
       ? summaryItems
@@ -297,7 +299,7 @@ export function setupCompanion(
         );
     if (interruptedRequests.has(requestId)) throw new Error("AI 请求已中断");
     showRelated(related.slice(0, 6));
-    const knowledge = related
+    const knowledge = summaryMode ? "" : related
       .slice(0, 6)
       .map((item) => `[${item.creator === "user" ? "用户" : "AI"}] ${item.title || "知识"}: ${item.bodyMd}`)
       .join("\n");
@@ -319,10 +321,10 @@ export function setupCompanion(
       knowledge ? `个人知识库相关内容：\n${knowledge}` : "个人知识库没有匹配内容。",
     ].join("\n\n");
     const parts: AiMessage["content"] = [];
-    if (activeContext.pageText) parts.push({ type: "text", text: `当前页正文：\n${activeContext.pageText}` });
-    if (activeContext.pageImage) parts.push({ type: "image", media_type: activeContext.pageImage.mediaType, data: activeContext.pageImage.data });
-    if (activeContext.text) parts.push({ type: "text", text: `用户划选原文：\n${activeContext.text}` });
-    if (activeContext.image) parts.push({ type: "image", media_type: activeContext.image.mediaType, data: activeContext.image.data });
+    if (!summaryMode && activeContext.pageText) parts.push({ type: "text", text: `当前页正文：\n${activeContext.pageText}` });
+    if (!summaryMode && activeContext.pageImage) parts.push({ type: "image", media_type: activeContext.pageImage.mediaType, data: activeContext.pageImage.data });
+    if (!summaryMode && activeContext.text) parts.push({ type: "text", text: `用户划选原文：\n${activeContext.text}` });
+    if (!summaryMode && activeContext.image) parts.push({ type: "image", media_type: activeContext.image.mediaType, data: activeContext.image.data });
     parts.push({ type: "text", text: question });
     if (contextBookBound) {
       const savedUser = await appendThreadMessage({
@@ -487,9 +489,11 @@ export function setupCompanion(
     if (!contextBookBound) return status("默认分类内容不能作为本书思考总结", true);
     const items = (await listKnowledge(context.bookId)).filter((item) => item.creator === "user");
     if (!items.length) return status("本书还没有可总结的个人思考", true);
+    const summary = buildBookSummary(items);
+    const includedItems = items.filter((item) => summary.itemIds.includes(item.id));
     setMode("thought");
     pendingKind = "summary";
-    pendingLinks = items.map((item) => item.id);
+    pendingLinks = summary.itemIds;
     const requestId = crypto.randomUUID();
     activeRequestId = requestId;
     setBusy(true);
@@ -497,8 +501,8 @@ export function setupCompanion(
     try {
       await ask(
         requestId,
-        `只总结以下由我亲自记录的思考，提炼主题、论证脉络和仍待解决的问题：\n\n${items.map((item) => `- ${item.bodyMd}`).join("\n")}`,
-        items,
+        summary.prompt,
+        includedItems,
         "归纳中…",
       );
     } catch (error) {

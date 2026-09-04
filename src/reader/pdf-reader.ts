@@ -36,6 +36,7 @@ export type PdfReader = {
   currentBook: () => BookRecord | undefined;
   currentPageContext: () => Promise<Pick<ReadingContext, "page" | "pageText" | "pageImage">>;
   beginCapture: (onCaptured: (context: ReadingContext) => void) => boolean;
+  flush: () => Promise<void>;
   destroy: () => void;
 };
 
@@ -267,8 +268,12 @@ export function setupPdfReader(
     if (!book) return;
     window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => {
-      if (book) void saveReadingPage(book.id, currentPage);
+      if (book) void saveReadingPage(book.id, currentPage).catch(showError);
     }, 350);
+  };
+  const flushPage = async (): Promise<void> => {
+    window.clearTimeout(saveTimer);
+    if (book) await saveReadingPage(book.id, currentPage);
   };
   const updateCurrentPage = (): void => {
     const visible = [...visibility.entries()].filter(([, ratio]) => ratio > 0);
@@ -416,6 +421,7 @@ export function setupPdfReader(
 
   const open = async (nextBook: BookRecord): Promise<number> => {
     setLoading(true);
+    await flushPage().catch(showError);
     await destroyDocument();
     book = nextBook;
     setChapterDrawerOpen(false);
@@ -609,6 +615,7 @@ export function setupPdfReader(
       window.getSelection()?.removeAllRanges();
       return true;
     },
+    flush: flushPage,
     destroy: () => {
       window.clearTimeout(saveTimer);
       renderObserver?.disconnect();

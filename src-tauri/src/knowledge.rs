@@ -443,7 +443,6 @@ pub fn get_knowledge_graph(store: State<'_, KnowledgeStore>) -> Result<Knowledge
 
 #[tauri::command]
 pub fn append_thread_message(
-    app: AppHandle,
     store: State<'_, KnowledgeStore>,
     request: AppendMessageRequest,
 ) -> Result<ThreadConversation, String> {
@@ -457,10 +456,6 @@ pub fn append_thread_message(
             &request.body,
         )
         .map_err(|error| error.to_string())?;
-    if request.role == "assistant" {
-        history::archive_thread(&app, &store, &conversation, &request.book_id, &request.mode)
-            .map_err(|error| error.to_string())?;
-    }
     Ok(conversation)
 }
 
