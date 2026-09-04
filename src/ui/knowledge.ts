@@ -279,7 +279,7 @@ export function setupKnowledge(
       empty.className = "collection-empty";
       empty.textContent = "此分类暂无知识";
       elements.knowledgeList.append(empty);
-      if (selectedId) elements.knowledgeDetail.replaceChildren();
+      elements.knowledgeDetail.replaceChildren();
       return;
     }
     for (const item of items) {
