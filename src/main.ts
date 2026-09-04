@@ -107,7 +107,7 @@ elements.openChapters.addEventListener("click", () => {
   reader.openChapters();
 });
 elements.emptyOpen.addEventListener("click", () => void library.importAndOpen().catch(showError));
-elements.exitApp.addEventListener("click", () => window.close());
+elements.exitApp.addEventListener("click", () => void getCurrentWindow().close().catch(showError));
 window.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     elements.libraryPanel.hidden = true;

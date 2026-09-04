@@ -28,7 +28,9 @@ export type ShellElements = {
   recordMode: HTMLButtonElement;
   thoughtPanel: HTMLElement;
   recordPanel: HTMLElement;
+  selectionContext: HTMLElement;
   selectionQuote: HTMLElement;
+  selectionClear: HTMLButtonElement;
   conversation: HTMLElement;
   questionInput: HTMLTextAreaElement;
   questionResizer: HTMLElement;
@@ -56,6 +58,7 @@ export type ShellElements = {
   lookupTitle: HTMLElement;
   lookupSource: HTMLElement;
   lookupResultTitle: HTMLElement;
+  lookupStatus: HTMLOutputElement;
   lookupBody: HTMLElement;
   lookupClose: HTMLButtonElement;
   settingsPanel: HTMLElement;
@@ -119,7 +122,10 @@ export function mountShell(app: HTMLElement): ShellElements {
               <div class="lookup-source" id="lookup-source"></div>
             </section>
             <section class="lookup-section">
-              <h3 id="lookup-result-title">解释结果</h3>
+              <div class="lookup-result-heading">
+                <h3 id="lookup-result-title">解释结果</h3>
+                <output class="ai-status" id="lookup-status" aria-live="polite"></output>
+              </div>
               <article class="markdown-body" id="lookup-body" aria-live="polite"></article>
             </section>
           </div>
@@ -186,7 +192,10 @@ export function mountShell(app: HTMLElement): ShellElements {
             </div>
           </header>
           <div class="companion-body">
-            <blockquote class="selection-quote" id="selection-quote" hidden></blockquote>
+            <div class="selection-context" id="selection-context" hidden>
+              <blockquote class="selection-quote" id="selection-quote"></blockquote>
+              <button class="selection-clear" id="selection-clear" type="button" aria-label="清除所选内容" title="清除所选内容">×</button>
+            </div>
             <section class="thought-panel" id="thought-panel">
               <div class="conversation" id="conversation"></div>
               <div class="related-knowledge" id="related-knowledge" hidden></div>
@@ -400,7 +409,9 @@ export function mountShell(app: HTMLElement): ShellElements {
     recordMode: get("#record-mode"),
     thoughtPanel: get("#thought-panel"),
     recordPanel: get("#record-panel"),
+    selectionContext: get("#selection-context"),
     selectionQuote: get("#selection-quote"),
+    selectionClear: get("#selection-clear"),
     conversation: get("#conversation"),
     questionInput: get("#question-input"),
     questionResizer: get("#question-resizer"),
@@ -428,6 +439,7 @@ export function mountShell(app: HTMLElement): ShellElements {
     lookupTitle: get("#lookup-title"),
     lookupSource: get("#lookup-source"),
     lookupResultTitle: get("#lookup-result-title"),
+    lookupStatus: get("#lookup-status"),
     lookupBody: get("#lookup-body"),
     lookupClose: get("#lookup-close"),
     settingsPanel: get("#settings-panel"),

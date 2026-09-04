@@ -23,7 +23,9 @@ type CompanionElements = {
   recordMode: HTMLButtonElement;
   thoughtPanel: HTMLElement;
   recordPanel: HTMLElement;
+  selectionContext: HTMLElement;
   selectionQuote: HTMLElement;
+  selectionClear: HTMLButtonElement;
   conversation: HTMLElement;
   questionInput: HTMLTextAreaElement;
   saveAnswer: HTMLButtonElement;
@@ -46,6 +48,7 @@ type CompanionElements = {
   lookupTitle: HTMLElement;
   lookupSource: HTMLElement;
   lookupResultTitle: HTMLElement;
+  lookupStatus: HTMLOutputElement;
   lookupBody: HTMLElement;
   lookupClose: HTMLButtonElement;
 };
@@ -102,12 +105,19 @@ export function setupCompanion(
     elements.clearConversation.hidden = !thought;
     elements.thoughtMode.setAttribute("aria-selected", String(thought));
     elements.recordMode.setAttribute("aria-selected", String(!thought));
-    (thought ? elements.questionInput : elements.noteBody).focus();
+    (thought ? elements.questionInput : elements.noteBody).focus({ preventScroll: true });
   };
   const showContext = (): void => {
     const content = context?.text || (context?.image ? (contextBookBound ? `已截取第 ${context.page} 页` : "已选择图片") : "");
-    elements.selectionQuote.hidden = !content;
+    elements.selectionContext.hidden = !content;
     elements.selectionQuote.textContent = content;
+  };
+  const clearSelection = (): void => {
+    window.getSelection()?.removeAllRanges();
+    context = bookContext ? { ...bookContext, text: undefined, image: undefined } : undefined;
+    contextBookBound = Boolean(bookContext);
+    hideSelectionActions();
+    showContext();
   };
   const hideSelectionActions = (): void => {
     elements.selectionActions.hidden = true;
@@ -224,6 +234,8 @@ export function setupCompanion(
     const targetLanguage = getTranslationLanguage();
     elements.lookupTitle.textContent = mode === "translate" ? "翻译" : "解释";
     elements.lookupResultTitle.textContent = mode === "translate" ? "翻译结果" : "解释结果";
+    elements.lookupStatus.textContent = mode === "translate" ? "翻译中…" : "解释中…";
+    elements.lookupStatus.dataset.state = "normal";
     elements.lookupSource.replaceChildren();
     if (context.text) {
       elements.lookupSource.textContent = context.text;
@@ -233,7 +245,7 @@ export function setupCompanion(
       image.alt = "所选区域截图";
       elements.lookupSource.append(image);
     }
-    elements.lookupBody.textContent = mode === "translate" ? "正在翻译…" : "正在解释…";
+    elements.lookupBody.replaceChildren();
     if (!elements.lookupDialog.open) elements.lookupDialog.showModal();
     const material: AiMessage["content"] = [];
     if (context.text) material.push({ type: "text", text: `所选文字：\n${context.text}` });
@@ -260,13 +272,20 @@ export function setupCompanion(
         ],
         (delta) => {
           if (lookupRequestId !== requestId) return;
+          elements.lookupStatus.textContent = "生成中…";
           answer += delta;
           renderLookupMarkdown(answer);
         },
       );
-      if (lookupRequestId === requestId && !answer.trim()) elements.lookupBody.textContent = "AI 未返回可显示内容";
+      if (lookupRequestId === requestId) {
+        if (!answer.trim()) throw new Error("AI 未返回可显示内容");
+        elements.lookupStatus.textContent = "已完成";
+      }
     } catch (error) {
-      if (lookupRequestId === requestId) elements.lookupBody.textContent = String(error);
+      if (lookupRequestId === requestId) {
+        elements.lookupStatus.textContent = String(error);
+        elements.lookupStatus.dataset.state = "error";
+      }
     } finally {
       if (lookupRequestId === requestId) lookupRequestId = undefined;
     }
@@ -351,32 +370,36 @@ export function setupCompanion(
           { role: "user", content: parts },
         ],
         (delta) => {
-          activity?.remove();
+          if (activity) activity.textContent = "回答中…";
           answer += delta;
           body.textContent = answer;
           elements.conversation.scrollTop = elements.conversation.scrollHeight;
         },
       );
+      if (!answer.trim()) throw new Error("AI 未返回可显示内容");
+      conversation.push({ role: "user", content: parts }, { role: "assistant", content: [{ type: "text", text: answer }] });
+      lastAnswer = answer;
+      elements.saveAnswer.hidden = false;
+      if (contextBookBound) {
+        const savedAnswer = await appendThreadMessage({
+          threadId,
+          mode: "thought",
+          bookId: context.bookId,
+          page: context.page,
+          role: "assistant",
+          body: answer,
+        });
+        threadId = savedAnswer.id;
+      }
+      if (activity) activity.textContent = "已完成";
     } catch (error) {
-      if (interruptedRequests.has(requestId)) body.closest("article")?.remove();
+      if (interruptedRequests.has(requestId)) {
+        body.closest("article")?.remove();
+      } else if (activity) {
+        activity.textContent = String(error);
+        activity.dataset.state = "error";
+      }
       throw error;
-    } finally {
-      activity?.remove();
-    }
-    if (!answer.trim()) throw new Error("AI 未返回可显示内容");
-    conversation.push({ role: "user", content: parts }, { role: "assistant", content: [{ type: "text", text: answer }] });
-    lastAnswer = answer;
-    elements.saveAnswer.hidden = false;
-    if (contextBookBound) {
-      const savedAnswer = await appendThreadMessage({
-        threadId,
-        mode: "thought",
-        bookId: context.bookId,
-        page: context.page,
-        role: "assistant",
-        body: answer,
-      });
-      threadId = savedAnswer.id;
     }
   };
   const runQuestion = async (question: string): Promise<void> => {
@@ -561,6 +584,7 @@ export function setupCompanion(
   });
   elements.summarizeNotes.addEventListener("click", () => void summarize());
   elements.capturePage.addEventListener("click", startCapture);
+  elements.selectionClear.addEventListener("click", clearSelection);
   document.addEventListener("contextmenu", (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target || target.closest("input, textarea, [contenteditable='true']")) return;
@@ -604,6 +628,7 @@ export function setupCompanion(
     elements.lookupDialog.close();
     elements.lookupSource.replaceChildren();
     elements.lookupBody.replaceChildren();
+    elements.lookupStatus.replaceChildren();
     if (requestId) void cancelAi(requestId).catch(() => undefined);
   });
   return {
@@ -643,7 +668,7 @@ export function setupCompanion(
     },
     selectText(text, page) {
       if (!bookContext) return;
-      context = { ...bookContext, page, text, image: undefined };
+      context = { ...bookContext, page, text: text || undefined, image: undefined };
       contextBookBound = true;
       showContext();
     },

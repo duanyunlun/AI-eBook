@@ -535,13 +535,13 @@ export function setupPdfReader(
   });
   elements.zoomSlider.addEventListener("change", () => changeScale(elements.zoomSlider.valueAsNumber));
   elements.zoomIn.addEventListener("click", () => changeScale(scale + 0.1));
-  elements.reader.addEventListener("pointerup", () => {
+  elements.reader.addEventListener("pointerup", (event) => {
     if (captureCallback) return;
     const selection = window.getSelection();
-    const text = selection?.toString().replace(/\s+/g, " ").trim();
-    if (!selection || !text) return;
-    const anchor = selection.anchorNode instanceof Element ? selection.anchorNode : selection.anchorNode?.parentElement;
-    const page = anchor?.closest<HTMLElement>(".reader-page");
+    const text = selection?.toString().replace(/\s+/g, " ").trim() || "";
+    const anchor = selection?.anchorNode instanceof Element ? selection.anchorNode : selection?.anchorNode?.parentElement;
+    const target = event.target instanceof Element ? event.target : null;
+    const page = anchor?.closest<HTMLElement>(".reader-page") || target?.closest<HTMLElement>(".reader-page");
     if (page) onSelection(text, Number(page.dataset.page));
   });
   elements.reader.addEventListener("pointerdown", (event) => {

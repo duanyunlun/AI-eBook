@@ -572,16 +572,40 @@ button:disabled {
   overflow: hidden;
 }
 
+.selection-context {
+  position: relative;
+  flex: none;
+}
+
 .selection-quote {
   max-height: 116px;
   margin: 0;
-  padding: 9px 10px;
+  padding: 9px 38px 9px 10px;
   overflow: auto;
   border-left: 2px solid var(--accent);
   background: var(--surface);
   color: var(--muted);
   font-size: calc(12px * var(--ui-font-scale));
   line-height: 1.55;
+}
+
+.selection-clear {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--subtle);
+  cursor: pointer;
+  font-size: calc(17px * var(--ui-font-scale));
+}
+
+.selection-clear:hover,
+.selection-clear:focus-visible {
+  color: var(--accent-hover);
 }
 
 .selection-actions {
@@ -677,6 +701,18 @@ button:disabled {
   letter-spacing: 0;
 }
 
+.lookup-result-heading {
+  display: flex;
+  min-width: 0;
+  padding: 11px 18px 8px;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.lookup-result-heading h3 {
+  padding: 0;
+}
+
 .lookup-source,
 .lookup-dialog article {
   min-height: 0;
@@ -749,10 +785,24 @@ button:disabled {
   color: var(--accent);
 }
 
-.message-activity {
+.message-activity,
+.ai-status {
   margin-left: 8px;
   color: var(--accent);
   font-weight: 500;
+}
+
+.ai-status {
+  margin-left: 0;
+  overflow: hidden;
+  font-size: calc(11px * var(--ui-font-scale));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message-activity[data-state="error"],
+.ai-status[data-state="error"] {
+  color: var(--error);
 }
 
 .related-knowledge {
