@@ -16,6 +16,7 @@ import {
 } from "../api";
 import { getCompanionSystemPrompt, getTranslationLanguage } from "./ai-settings";
 import { buildBookSummary } from "../summary";
+import { readingContextMaterial } from "../reader-state";
 import { knowledgeNodeLabel } from "./knowledge-canvas";
 
 type CompanionElements = {
@@ -82,6 +83,7 @@ export function setupCompanion(
   let conversation: AiMessage[] = [];
   let lastAnswer = "";
   let lastQuestion = "";
+  let lastAnswerContext: ReadingContext | undefined;
   let pendingKind: KnowledgeItem["kind"] = "answer";
   let pendingLinks: string[] = [];
   let threadId: string | undefined;
@@ -308,17 +310,21 @@ export function setupCompanion(
       if (lookupRequestId === requestId) lookupRequestId = undefined;
     }
   };
-  const evidence = (): SaveKnowledgeRequest["evidence"] | undefined => {
-    if (!context) return undefined;
+  const evidence = (source: ReadingContext | undefined): SaveKnowledgeRequest["evidence"] | undefined => {
+    if (!source) return undefined;
+    const material = readingContextMaterial(source);
+    if (!material) return undefined;
+    const bookBound = Boolean(source.bookId);
     return {
-      kind: contextBookBound ? (context.image ? "image" : "text") : "external",
-      bookId: contextBookBound ? context.bookId : undefined,
-      chapterId: contextBookBound ? `page-${context.page}` : undefined,
-      locator: contextBookBound ? { page: context.page } : { source: "app-selection" },
-      textSnapshot: context.text || (context.image ? (contextBookBound ? `第 ${context.page} 页截图` : "所选图片") : undefined),
+      kind: material.image ? "image" : bookBound ? "text" : "external",
+      bookId: bookBound ? source.bookId : undefined,
+      chapterId: bookBound ? `page-${source.page}` : undefined,
+      locator: bookBound ? { page: source.page } : { source: "app-selection" },
+      textSnapshot: material.text || (bookBound ? `第 ${source.page} 页截图` : "所选图片"),
     };
   };
-  const assetData = (): string | undefined => context?.image?.data;
+  const assetData = (source: ReadingContext | undefined): string | undefined =>
+    source ? readingContextMaterial(source)?.image?.data : undefined;
   const ask = async (
     requestId: string,
     question: string,
@@ -421,6 +427,7 @@ export function setupCompanion(
       );
       if (!answer.trim()) throw new Error("AI 未返回可显示内容");
       conversation.push({ role: "user", content: parts }, { role: "assistant", content: [{ type: "text", text: answer }] });
+      lastAnswerContext = activeContext;
       lastAnswer = answer;
       elements.saveAnswer.hidden = false;
       if (contextBookBound) {
@@ -450,6 +457,8 @@ export function setupCompanion(
     activeRequestId = requestId;
     setBusy(true);
     elements.saveAnswer.hidden = true;
+    delete elements.saveAnswer.dataset.state;
+    elements.saveAnswer.title = "录入知识库";
     status("");
     pendingKind = "answer";
     pendingLinks = [];
@@ -486,33 +495,39 @@ export function setupCompanion(
     }
   };
   const saveAnswer = async (): Promise<void> => {
-    if (!context || !lastAnswer) return;
+    if (!lastAnswerContext || !lastAnswer) return;
+    const source = lastAnswerContext;
+    const bookBound = Boolean(source.bookId);
     elements.saveAnswer.disabled = true;
+    elements.saveAnswer.dataset.state = "saving";
+    elements.saveAnswer.title = "正在录入知识库";
     status("正在写入知识库…");
     try {
       await saveKnowledge({
         item: {
           kind: pendingKind,
-          bookId: contextBookBound ? context.bookId : undefined,
-          chapterId: contextBookBound ? `page-${context.page}` : undefined,
-          category: contextBookBound ? undefined : "默认分类",
+          bookId: bookBound ? source.bookId : undefined,
+          chapterId: bookBound ? `page-${source.page}` : undefined,
+          category: bookBound ? undefined : "默认分类",
           title:
             pendingKind === "summary"
-              ? `${context.bookTitle} · 阅读总结`
+              ? `${source.bookTitle} · 阅读总结`
               : lastQuestion.slice(0, 42) || "伴读回答",
           bodyMd: lastAnswer,
           creator: "ai",
-          basis: contextBookBound ? (pendingKind === "summary" ? "user_thought" : "mixed") : "external",
+          basis: bookBound ? (pendingKind === "summary" ? "user_thought" : "mixed") : "external",
           reviewState: "confirmed",
         },
-        evidence: evidence(),
-        assetData: assetData(),
+        evidence: evidence(source),
+        assetData: assetData(source),
         links: pendingLinks.map((targetId) => ({ targetId, relation: "summarizes" })),
       });
       elements.saveAnswer.hidden = true;
       status("已写入 Markdown 并保存 Git 历史");
       onKnowledgeSaved();
     } catch (error) {
+      elements.saveAnswer.dataset.state = "error";
+      elements.saveAnswer.title = String(error);
       status(String(error), true);
     } finally {
       elements.saveAnswer.disabled = false;
@@ -536,8 +551,8 @@ export function setupCompanion(
           basis: contextBookBound ? (context.text || context.image ? "book" : "user_thought") : "external",
           reviewState: "confirmed",
         },
-        evidence: evidence(),
-        assetData: assetData(),
+        evidence: evidence(context),
+        assetData: assetData(context),
       });
       elements.noteTitle.value = "";
       elements.noteBody.value = "";
@@ -596,6 +611,7 @@ export function setupCompanion(
       conversation = [];
       lastAnswer = "";
       lastQuestion = "";
+      lastAnswerContext = undefined;
       pendingKind = "answer";
       pendingLinks = [];
       elements.conversation.replaceChildren();
@@ -683,6 +699,7 @@ export function setupCompanion(
       conversation = [];
       threadId = undefined;
       lastAnswer = "";
+      lastAnswerContext = undefined;
       pendingLinks = [];
       elements.conversation.replaceChildren();
       elements.relatedKnowledge.hidden = true;

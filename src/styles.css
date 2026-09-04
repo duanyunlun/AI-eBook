@@ -934,6 +934,14 @@ button:disabled {
   background: var(--accent-hover);
 }
 
+.save-answer[data-state="saving"] svg {
+  animation: save-answer-spin 800ms linear infinite;
+}
+
+.save-answer[data-state="error"] {
+  background: var(--error);
+}
+
 .save-answer svg {
   width: 21px;
   height: 21px;
@@ -942,6 +950,10 @@ button:disabled {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.8;
+}
+
+@keyframes save-answer-spin {
+  to { transform: rotate(360deg); }
 }
 
 .record-panel input {

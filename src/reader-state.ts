@@ -1,3 +1,5 @@
+import type { ReadingContext } from "./api";
+
 export function clampPage(page: number, total: number): number {
   if (!Number.isFinite(page)) return 1;
   return Math.min(Math.max(Math.trunc(page), 1), Math.max(total, 1));
@@ -11,6 +13,16 @@ export function clampScale(scale: number): number {
 export function parseBase64DataUrl(source: string): { mediaType: string; data: string } | undefined {
   const match = source.match(/^data:([^;,]+);base64,(.+)$/);
   return match ? { mediaType: match[1], data: match[2] } : undefined;
+}
+
+export function readingContextMaterial(
+  context: Pick<ReadingContext, "text" | "image" | "pageText" | "pageImage">,
+): { text?: string; image?: ReadingContext["image"] } | undefined {
+  if (context.text) return { text: context.text };
+  if (context.image) return { image: context.image };
+  if (context.pageText) return { text: context.pageText };
+  if (context.pageImage) return { image: context.pageImage };
+  return undefined;
 }
 
 export type TextChapter = {
