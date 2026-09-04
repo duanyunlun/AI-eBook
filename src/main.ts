@@ -118,18 +118,27 @@ window.addEventListener("keydown", (event) => {
   }
 });
 let closing = false;
+let allowClose = false;
 void getCurrentWindow().onCloseRequested(async (event) => {
-  if (closing) return;
-  event.preventDefault();
-  closing = true;
-  try {
-    await Promise.race([
-      reader.flush(),
-      new Promise<void>((resolve) => window.setTimeout(resolve, 500)),
-    ]).catch(() => undefined);
-  } finally {
+  if (allowClose) {
     reader.destroy();
-    await getCurrentWindow().destroy();
+    return;
+  }
+  event.preventDefault();
+  if (closing) return;
+  closing = true;
+  elements.loading.textContent = "正在保存阅读进度…";
+  elements.loading.hidden = false;
+  try {
+    await reader.flush();
+    allowClose = true;
+    window.setTimeout(() => {
+      void getCurrentWindow().close().catch(showError);
+    }, 0);
+  } catch (error) {
+    closing = false;
+    elements.loading.hidden = true;
+    showError(new Error(`关闭前保存失败：${error instanceof Error ? error.message : String(error)}`));
   }
 });
 
