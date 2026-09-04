@@ -831,6 +831,22 @@ button:disabled {
   stroke-width: 1.5;
 }
 
+.related-knowledge .related-node {
+  cursor: pointer;
+}
+
+.related-knowledge .related-node text {
+  fill: var(--text);
+  font-size: 8px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.related-knowledge .related-node:hover circle,
+.related-knowledge .related-node:focus-visible circle {
+  stroke-width: 2.5;
+}
+
 .related-knowledge circle[data-creator="ai"] {
   stroke: var(--subtle);
   stroke-dasharray: 3 2;

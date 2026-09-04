@@ -33,7 +33,7 @@ const relationLabels: Record<string, string> = {
 const createSvg = <T extends SVGElement>(name: string): T =>
   document.createElementNS(SVG_NS, name) as T;
 
-const nodeLabel = (item: KnowledgeItem): string =>
+export const knowledgeNodeLabel = (item: KnowledgeItem): string =>
   Array.from((item.title || item.bodyMd || "知识").replace(/[#*_`>《》“”‘’。，、！？：；\s]/g, "")).slice(0, 2).join("") || "知识";
 
 const groupLabel = (label: string, count: number): string => {
@@ -271,7 +271,7 @@ export function setupKnowledgeCanvas(
       const title = createSvg<SVGTextElement>("text");
       title.classList.add("graph-node-title");
       title.setAttribute("y", "1");
-      title.textContent = nodeLabel(item);
+      title.textContent = knowledgeNodeLabel(item);
       group.append(frame, title);
       group.addEventListener("click", () => onItem(item));
       group.addEventListener("contextmenu", (event) => {

@@ -513,18 +513,23 @@ export function setupPdfReader(
       };
     }
     const pageNumber = currentPage;
-    const page = await documentProxy.getPage(pageNumber);
-    const content = await page.getTextContent();
-    const text = content.items
-      .map((item) => ("str" in item ? `${item.str}${item.hasEOL ? "\n" : " "}` : ""))
-      .join("")
-      .replace(/[ \t]+/g, " ")
-      .replace(/ *\n */g, "\n")
-      .trim();
+    let text = "";
+    try {
+      const page = await documentProxy.getPage(pageNumber);
+      const content = await page.getTextContent();
+      text = content.items
+        .map((item) => ("str" in item ? `${item.str}${item.hasEOL ? "\n" : " "}` : ""))
+        .join("")
+        .replace(/[ \t]+/g, " ")
+        .replace(/ *\n */g, "\n")
+        .trim();
+    } catch {
+      // 损坏或扫描型 PDF 的文本层失败时，继续使用已渲染页面图像。
+    }
     const pageText = text.length > 20_000 ? `${text.slice(0, 20_000)}\n[当前页文本过长，已截断]` : text;
     if (pageText.length >= 40) return { page: pageNumber, pageText };
     // ponytail: 少于 40 字按扫描页处理；需要更准时再接 OCR 或版面检测。
-    await renderPage(pageNumber);
+    await renderPage(pageNumber).catch(() => undefined);
     const canvas = pageElement(pageNumber)?.querySelector("canvas");
     const pageImage = canvas?.width && canvas.height
       ? capturedContext(canvas, pageNumber, { x: 0, y: 0, width: canvas.width, height: canvas.height })?.image

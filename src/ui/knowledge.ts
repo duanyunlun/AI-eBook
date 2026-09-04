@@ -43,6 +43,7 @@ type Filter =
 export type KnowledgeController = {
   refresh: () => Promise<void>;
   openForBook: (bookId: string) => void;
+  openItem: (itemId: string) => void;
 };
 
 const labels: Record<KnowledgeItem["kind"], string> = {
@@ -418,6 +419,16 @@ export function setupKnowledge(
       closeKnowledgeDrawers();
       elements.knowledgePanel.hidden = false;
       void refresh().catch(showError);
+    },
+    openItem(itemId) {
+      filter = { kind: "all" };
+      selectedId = itemId;
+      elements.knowledgeSearch.value = "";
+      searchResults = undefined;
+      closeDrawers();
+      closeKnowledgeDrawers();
+      elements.knowledgePanel.hidden = false;
+      void refresh().then(openDetail).catch(showError);
     },
   };
 }

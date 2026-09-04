@@ -16,6 +16,7 @@ import {
 } from "../api";
 import { getCompanionSystemPrompt, getTranslationLanguage } from "./ai-settings";
 import { buildBookSummary } from "../summary";
+import { knowledgeNodeLabel } from "./knowledge-canvas";
 
 type CompanionElements = {
   annotationDrawer: HTMLElement;
@@ -73,6 +74,7 @@ export function setupCompanion(
   getCurrentPageContext: () => Promise<Pick<ReadingContext, "page" | "pageText" | "pageImage">>,
   onKnowledgeSaved: () => void,
   openBookRecords: (bookId: string) => void,
+  openKnowledgeItem: (itemId: string) => void,
 ): CompanionController {
   let context: ReadingContext | undefined;
   let bookContext: ReadingContext | undefined;
@@ -215,14 +217,29 @@ export function setupCompanion(
       line.setAttribute("y1", "75");
       line.setAttribute("x2", String(x));
       line.setAttribute("y2", String(y));
-      const node = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      node.setAttribute("cx", String(x));
-      node.setAttribute("cy", String(y));
-      node.setAttribute("r", "12");
-      node.dataset.creator = item.creator;
+      const node = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      node.classList.add("related-node");
+      node.setAttribute("transform", `translate(${x} ${y})`);
+      node.setAttribute("role", "button");
+      node.setAttribute("tabindex", "0");
+      node.setAttribute("aria-label", `打开知识：${item.title || "未命名知识"}`);
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute("r", "14");
+      circle.dataset.creator = item.creator;
+      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      text.textContent = knowledgeNodeLabel(item);
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("dominant-baseline", "central");
       const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
       title.textContent = `${item.title || "知识"}\n${item.bodyMd}`;
-      node.append(title);
+      node.append(circle, text, title);
+      node.addEventListener("click", () => openKnowledgeItem(item.id));
+      node.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openKnowledgeItem(item.id);
+        }
+      });
       svg.append(line, node);
     });
     elements.relatedKnowledge.append(svg);

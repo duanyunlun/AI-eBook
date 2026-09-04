@@ -63,6 +63,7 @@ companion = setupCompanion(
   reader.currentPageContext,
   () => void knowledge.refresh(),
   knowledge.openForBook,
+  knowledge.openItem,
 );
 
 const openBook = async (book: BookRecord): Promise<void> => {
