@@ -36,6 +36,9 @@ export function setupDrawers(elements: DrawerElements): DrawerController {
     if (!open) setSettingsOpen(false);
   };
   const setAnnotationOpen = (open: boolean): void => {
+    if (!open && elements.annotationDrawer.contains(document.activeElement) && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     elements.annotationDrawer.setAttribute("aria-hidden", String(!open));
     elements.annotationToggle.hidden = open;
     elements.annotationToggle.setAttribute("aria-expanded", String(open));
