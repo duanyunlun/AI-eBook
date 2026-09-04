@@ -8,6 +8,11 @@ export function clampScale(scale: number): number {
   return Math.min(Math.max(Math.round(scale * 10) / 10, 0.6), 2.4);
 }
 
+export function parseBase64DataUrl(source: string): { mediaType: string; data: string } | undefined {
+  const match = source.match(/^data:([^;,]+);base64,(.+)$/);
+  return match ? { mediaType: match[1], data: match[2] } : undefined;
+}
+
 export type TextChapter = {
   title: string;
   body: string;

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { clampPage, clampScale, parseTextChapters } from "./reader-state.ts";
+import { clampPage, clampScale, parseBase64DataUrl, parseTextChapters } from "./reader-state.ts";
 
 test("页码始终限制在文档范围内", () => {
   assert.equal(clampPage(-4, 10), 1);
@@ -13,6 +13,11 @@ test("缩放比例按十个百分点调整并限制范围", () => {
   assert.equal(clampScale(0.2), 0.6);
   assert.equal(clampScale(1.26), 1.3);
   assert.equal(clampScale(3), 2.4);
+});
+
+test("页面截图使用浏览器实际返回的图片格式", () => {
+  assert.deepEqual(parseBase64DataUrl("data:image/png;base64,AAAA"), { mediaType: "image/png", data: "AAAA" });
+  assert.equal(parseBase64DataUrl("data:image/png,not-base64"), undefined);
 });
 
 test("纯文本与 Markdown 标题生成章节", () => {

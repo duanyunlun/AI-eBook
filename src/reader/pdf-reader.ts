@@ -2,7 +2,7 @@ import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, PDFPageProxy, PageViewport, RenderTask, TextLayer } from "pdfjs-dist";
 import { bookUrl, saveReadingPage, type BookRecord, type ReadingContext } from "../api";
-import { clampPage, clampScale, parseTextChapters, type TextChapter } from "../reader-state";
+import { clampPage, clampScale, parseBase64DataUrl, parseTextChapters, type TextChapter } from "../reader-state";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -493,13 +493,15 @@ export function setupPdfReader(
       output.width,
       output.height,
     );
+    const image = parseBase64DataUrl(output.toDataURL("image/webp", 0.82));
+    if (!image) return undefined;
     return {
       bookId: book.id,
       bookTitle: book.title,
       bookFormat: book.format,
       page,
       totalPages: documentProxy?.numPages ?? page,
-      image: { mediaType: "image/webp", data: output.toDataURL("image/webp", 0.82).split(",")[1] },
+      image,
     };
   };
 
@@ -531,9 +533,27 @@ export function setupPdfReader(
     // ponytail: 少于 40 字按扫描页处理；需要更准时再接 OCR 或版面检测。
     await renderPage(pageNumber).catch(() => undefined);
     const canvas = pageElement(pageNumber)?.querySelector("canvas");
-    const pageImage = canvas?.width && canvas.height
+    let pageImage = canvas?.width && canvas.height
       ? capturedContext(canvas, pageNumber, { x: 0, y: 0, width: canvas.width, height: canvas.height })?.image
       : undefined;
+    if (!pageImage) {
+      try {
+        const page = await documentProxy.getPage(pageNumber);
+        const baseViewport = page.getViewport({ scale: 1 });
+        const snapshotScale = Math.min(2, 1600 / Math.max(baseViewport.width, baseViewport.height));
+        const viewport = page.getViewport({ scale: snapshotScale });
+        const snapshot = document.createElement("canvas");
+        snapshot.width = Math.round(viewport.width);
+        snapshot.height = Math.round(viewport.height);
+        const context = snapshot.getContext("2d", { alpha: false });
+        if (context) {
+          await page.render({ canvas: snapshot, canvasContext: context, viewport }).promise;
+          pageImage = capturedContext(snapshot, pageNumber, { x: 0, y: 0, width: snapshot.width, height: snapshot.height })?.image;
+        }
+      } catch {
+        // 页面独立渲染也失败时，由伴读栏明确提示当前页读取失败。
+      }
+    }
     return { page: pageNumber, pageText: pageText || undefined, pageImage };
   };
 

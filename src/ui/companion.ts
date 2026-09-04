@@ -340,6 +340,7 @@ export function setupCompanion(
         setActivity("读取当前页…");
         try {
           activeContext = { ...context, ...(await getCurrentPageContext()) };
+          if (!activeContext.pageText && !activeContext.pageImage) warnings.push("当前页内容读取失败");
         } catch {
           warnings.push("当前页内容读取失败");
         }
