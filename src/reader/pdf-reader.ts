@@ -2,7 +2,7 @@ import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, PDFPageProxy, PageViewport, RenderTask, TextLayer } from "pdfjs-dist";
 import { bookUrl, saveReadingPage, type BookRecord, type ReadingContext } from "../api";
-import { clampPage, parseTextChapters, type TextChapter } from "../reader-state";
+import { clampPage, clampScale, parseTextChapters, type TextChapter } from "../reader-state";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -64,6 +64,8 @@ export function setupPdfReader(
   let renderObserver: IntersectionObserver | undefined;
   let positionObserver: IntersectionObserver | undefined;
   let captureCallback: ((context: ReadingContext) => void) | undefined;
+  let gestureStartScale = 1;
+  let touchStartDistance = 0;
 
   const setLoading = (loading: boolean): void => {
     elements.loading.hidden = !loading;
@@ -349,7 +351,9 @@ export function setupPdfReader(
   }
   const changeScale = (nextScale: number): void => {
     if (!documentProxy) return;
-    scale = Math.min(Math.max(Math.round(nextScale * 10) / 10, 0.6), 2.4);
+    const normalizedScale = clampScale(nextScale);
+    if (normalizedScale === scale) return;
+    scale = normalizedScale;
     for (const task of renderTasks.values()) task.cancel();
     for (const layer of textLayers.values()) layer.cancel();
     renderTasks.clear();
@@ -535,6 +539,43 @@ export function setupPdfReader(
   });
   elements.zoomSlider.addEventListener("change", () => changeScale(elements.zoomSlider.valueAsNumber));
   elements.zoomIn.addEventListener("click", () => changeScale(scale + 0.1));
+  elements.reader.addEventListener("wheel", (event) => {
+    if (!documentProxy || !event.ctrlKey) return;
+    event.preventDefault();
+    changeScale(scale + (event.deltaY < 0 ? 0.1 : -0.1));
+  }, { passive: false });
+  elements.reader.addEventListener("gesturestart", (event) => {
+    if (!documentProxy) return;
+    event.preventDefault();
+    gestureStartScale = scale;
+  });
+  elements.reader.addEventListener("gesturechange", (event) => {
+    if (!documentProxy || touchStartDistance) return;
+    event.preventDefault();
+    changeScale(gestureStartScale * Number((event as Event & { scale?: number }).scale || 1));
+  });
+  elements.reader.addEventListener("touchstart", (event) => {
+    if (!documentProxy || event.touches.length !== 2) return;
+    gestureStartScale = scale;
+    touchStartDistance = Math.hypot(
+      event.touches[0].clientX - event.touches[1].clientX,
+      event.touches[0].clientY - event.touches[1].clientY,
+    );
+  }, { passive: true });
+  elements.reader.addEventListener("touchmove", (event) => {
+    if (!documentProxy || event.touches.length !== 2 || !touchStartDistance) return;
+    event.preventDefault();
+    const distance = Math.hypot(
+      event.touches[0].clientX - event.touches[1].clientX,
+      event.touches[0].clientY - event.touches[1].clientY,
+    );
+    changeScale(gestureStartScale * distance / touchStartDistance);
+  }, { passive: false });
+  const finishTouchScale = (event: TouchEvent): void => {
+    if (event.touches.length < 2) touchStartDistance = 0;
+  };
+  elements.reader.addEventListener("touchend", finishTouchScale);
+  elements.reader.addEventListener("touchcancel", finishTouchScale);
   elements.reader.addEventListener("pointerup", (event) => {
     if (captureCallback) return;
     const selection = window.getSelection();

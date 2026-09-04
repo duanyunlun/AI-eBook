@@ -311,16 +311,34 @@ export function setupCompanion(
     lastQuestion = question;
     const { body, activity } = addMessage("assistant", "", activityText);
     let answer = "";
+    const warnings: string[] = [];
+    const setActivity = (message: string): void => {
+      if (activity) activity.textContent = warnings.length ? `${message}（${warnings.join("、")}）` : message;
+    };
     try {
       if (!context) throw new Error("请先选择内容或打开书籍");
-      const activeContext = contextBookBound ? { ...context, ...(await getCurrentPageContext()) } : context;
+      let activeContext = context;
+      if (contextBookBound) {
+        setActivity("读取当前页…");
+        try {
+          activeContext = { ...context, ...(await getCurrentPageContext()) };
+        } catch {
+          warnings.push("当前页内容读取失败");
+        }
+      }
       const summaryMode = summaryItems.length > 0;
       const currentBookId = activeContext.bookId;
-      const related = summaryItems.length
-        ? summaryItems
-        : (await searchKnowledge(question)).sort((left, right) =>
+      let related = summaryItems;
+      if (!summaryMode) {
+        setActivity("检索知识…");
+        try {
+          related = (await searchKnowledge(question)).sort((left, right) =>
             Number(right.bookId === currentBookId) - Number(left.bookId === currentBookId),
           );
+        } catch {
+          warnings.push("知识检索失败");
+        }
+      }
       if (interruptedRequests.has(requestId)) throw new Error("AI 请求已中断");
       showRelated(related.slice(0, 6));
       const knowledge = summaryMode ? "" : related
@@ -351,17 +369,23 @@ export function setupCompanion(
       if (!summaryMode && activeContext.image) parts.push({ type: "image", media_type: activeContext.image.mediaType, data: activeContext.image.data });
       parts.push({ type: "text", text: question });
       if (contextBookBound) {
-        const savedUser = await appendThreadMessage({
-          threadId,
-          mode: "thought",
-          bookId: context.bookId,
-          page: activeContext.page,
-          role: "user",
-          body: question,
-        });
-        threadId = savedUser.id;
+        setActivity("保存问题…");
+        try {
+          const savedUser = await appendThreadMessage({
+            threadId,
+            mode: "thought",
+            bookId: context.bookId,
+            page: activeContext.page,
+            role: "user",
+            body: question,
+          });
+          threadId = savedUser.id;
+        } catch {
+          warnings.push("对话记录保存失败");
+        }
       }
       if (interruptedRequests.has(requestId)) throw new Error("AI 请求已中断");
+      setActivity(activityText);
       await streamAi(
         requestId,
         [
@@ -370,7 +394,7 @@ export function setupCompanion(
           { role: "user", content: parts },
         ],
         (delta) => {
-          if (activity) activity.textContent = "回答中…";
+          setActivity("回答中…");
           answer += delta;
           body.textContent = answer;
           elements.conversation.scrollTop = elements.conversation.scrollHeight;
@@ -391,7 +415,7 @@ export function setupCompanion(
         });
         threadId = savedAnswer.id;
       }
-      if (activity) activity.textContent = "已完成";
+      setActivity("已完成");
     } catch (error) {
       if (interruptedRequests.has(requestId)) {
         body.closest("article")?.remove();

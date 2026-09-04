@@ -3,6 +3,11 @@ export function clampPage(page: number, total: number): number {
   return Math.min(Math.max(Math.trunc(page), 1), Math.max(total, 1));
 }
 
+export function clampScale(scale: number): number {
+  if (!Number.isFinite(scale)) return 1;
+  return Math.min(Math.max(Math.round(scale * 10) / 10, 0.6), 2.4);
+}
+
 export type TextChapter = {
   title: string;
   body: string;
