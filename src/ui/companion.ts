@@ -32,6 +32,7 @@ type CompanionElements = {
   relatedKnowledge: HTMLElement;
   noteTitle: HTMLInputElement;
   noteBody: HTMLTextAreaElement;
+  noteCommandMenu: HTMLElement;
   currentBookRecords: HTMLButtonElement;
   saveNote: HTMLButtonElement;
   summarizeNotes: HTMLButtonElement;

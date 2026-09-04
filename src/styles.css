@@ -934,12 +934,57 @@ button:disabled {
   font-weight: 650;
 }
 
-.record-panel textarea {
+.note-editor {
+  position: relative;
   min-height: 180px;
-  padding: 12px;
   flex: 1;
+}
+
+.record-panel .note-editor textarea {
+  height: 100%;
+  padding: 12px;
   line-height: 1.65;
   resize: none;
+}
+
+.note-command-menu {
+  position: absolute;
+  z-index: 4;
+  top: 46px;
+  right: 10px;
+  left: 10px;
+  max-height: min(320px, calc(100% - 56px));
+  padding: 5px;
+  overflow: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  box-shadow: 0 8px 24px var(--shadow);
+}
+
+.note-command-menu button {
+  display: grid;
+  width: 100%;
+  padding: 8px 9px;
+  grid-template-columns: minmax(90px, auto) 1fr;
+  align-items: baseline;
+  gap: 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.note-command-menu button[aria-selected="true"],
+.note-command-menu button:hover {
+  background: color-mix(in srgb, var(--surface-raised) 88%, var(--accent));
+}
+
+.note-command-menu small {
+  color: var(--subtle);
+  text-align: right;
 }
 
 .record-actions {

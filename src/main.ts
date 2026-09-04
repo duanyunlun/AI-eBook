@@ -8,6 +8,7 @@ import { setupDrawers } from "./ui/drawers";
 import { setupKnowledge } from "./ui/knowledge";
 import { setupKnowledgeDrawers } from "./ui/knowledge-drawers";
 import { setupLibrary } from "./ui/library";
+import { setupNoteEditor } from "./ui/note-editor";
 import { mountShell } from "./ui/shell";
 import { setupPreferences } from "./ui/preferences";
 import { setupTheme } from "./ui/theme";
@@ -17,6 +18,7 @@ const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("缺少应用挂载节点");
 
 const elements = mountShell(app);
+setupNoteEditor(elements.noteBody, elements.noteCommandMenu);
 const showError = (error: unknown): void => {
   elements.error.textContent = error instanceof Error ? error.message : String(error);
   elements.error.hidden = false;

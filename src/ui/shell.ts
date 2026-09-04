@@ -38,6 +38,7 @@ export type ShellElements = {
   relatedKnowledge: HTMLElement;
   noteTitle: HTMLInputElement;
   noteBody: HTMLTextAreaElement;
+  noteCommandMenu: HTMLElement;
   currentBookRecords: HTMLButtonElement;
   saveNote: HTMLButtonElement;
   summarizeNotes: HTMLButtonElement;
@@ -206,7 +207,10 @@ export function mountShell(app: HTMLElement): ShellElements {
             </section>
             <section class="record-panel" id="record-panel" hidden>
               <input id="note-title" type="text" placeholder="标题" aria-label="记录标题" />
-              <textarea id="note-body" rows="12" placeholder="记录此刻的理解" aria-label="记录正文"></textarea>
+              <div class="note-editor">
+                <textarea id="note-body" rows="12" placeholder="记录此刻的理解，输入 / 选择内容类型" aria-label="记录正文" aria-controls="note-command-menu" aria-haspopup="listbox" aria-expanded="false"></textarea>
+                <div class="note-command-menu" id="note-command-menu" role="listbox" aria-label="内容类型" hidden></div>
+              </div>
               <div class="record-actions">
                 <button class="secondary-command current-book-records" id="current-book-records" type="button" disabled>当前书籍记录</button>
                 <button class="secondary-command" id="summarize-notes" type="button">总结本书思考</button>
@@ -419,6 +423,7 @@ export function mountShell(app: HTMLElement): ShellElements {
     relatedKnowledge: get("#related-knowledge"),
     noteTitle: get("#note-title"),
     noteBody: get("#note-body"),
+    noteCommandMenu: get("#note-command-menu"),
     currentBookRecords: get("#current-book-records"),
     saveNote: get("#save-note"),
     summarizeNotes: get("#summarize-notes"),
