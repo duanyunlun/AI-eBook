@@ -219,7 +219,7 @@ export function setupPdfReader(
         renderInternalLinks(page, viewport, annotationContainer).catch(() => undefined),
       ]);
     } catch (error) {
-      if (error instanceof Error && error.name === "RenderingCancelledException") return;
+      if (error instanceof pdfjs.RenderingCancelledException || error instanceof pdfjs.AbortException) return;
       showError(error);
     } finally {
       delete canvas.dataset.rendering;
