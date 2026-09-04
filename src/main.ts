@@ -123,7 +123,10 @@ void getCurrentWindow().onCloseRequested(async (event) => {
   event.preventDefault();
   closing = true;
   try {
-    await reader.flush();
+    await Promise.race([
+      reader.flush(),
+      new Promise<void>((resolve) => window.setTimeout(resolve, 500)),
+    ]).catch(() => undefined);
   } finally {
     reader.destroy();
     await getCurrentWindow().destroy();
