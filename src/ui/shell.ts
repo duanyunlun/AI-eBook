@@ -287,6 +287,27 @@ export function mountShell(app: HTMLElement): ShellElements {
                 <input id="ai-max-output-tokens" type="number" min="1" max="131072" step="1" required />
               </label>
               <label>
+                <span>API Key</span>
+                <input id="ai-api-key" type="password" autocomplete="off" spellcheck="false" />
+              </label>
+              <output class="settings-status" id="ai-settings-status" aria-live="polite"></output>
+              <div class="settings-actions">
+                <button class="secondary-command" id="ai-test" type="button">测试连接</button>
+                <button class="primary-command" type="submit">保存</button>
+              </div>
+            </form>
+            <form class="ai-settings dsh-settings" id="ai-prompts-form" aria-labelledby="ai-prompts-title">
+              <h2 id="ai-prompts-title">内置提示词</h2>
+              <label class="system-prompt-setting">
+                <span>伴读提示词</span>
+                <textarea id="ai-system-prompt" rows="5" aria-label="伴读系统提示词"></textarea>
+              </label>
+              <button class="secondary-command" id="reset-system-prompt" type="button">恢复默认伴读提示词</button>
+              <label class="system-prompt-setting">
+                <span>翻译提示词</span>
+                <textarea id="ai-translate-prompt" rows="5"></textarea>
+              </label>
+              <label>
                 <span>翻译语言</span>
                 <select id="translation-language">
                   <option value="简体中文">简体中文</option>
@@ -296,28 +317,20 @@ export function mountShell(app: HTMLElement): ShellElements {
                   <option value="한국어">한국어</option>
                 </select>
               </label>
-              <label class="system-prompt-setting">
-                <span>伴读提示词</span>
-                <textarea id="ai-system-prompt" rows="5" aria-label="伴读系统提示词"></textarea>
-              </label>
-              <label class="system-prompt-setting">
-                <span>翻译提示词</span>
-                <textarea id="ai-translate-prompt" rows="5"></textarea>
-              </label>
               <button class="secondary-command" id="reset-translate-prompt" type="button">恢复默认翻译提示词</button>
               <label class="system-prompt-setting">
                 <span>解释提示词</span>
                 <textarea id="ai-explain-prompt" rows="5"></textarea>
               </label>
               <button class="secondary-command" id="reset-explain-prompt" type="button">恢复默认解释提示词</button>
-              <label>
-                <span>API Key</span>
-                <input id="ai-api-key" type="password" autocomplete="off" spellcheck="false" />
+              <label class="system-prompt-setting">
+                <span>总结提示词</span>
+                <textarea id="ai-summary-prompt" rows="5"></textarea>
               </label>
-              <output class="settings-status" id="ai-settings-status" aria-live="polite"></output>
+              <button class="secondary-command" id="reset-summary-prompt" type="button">恢复默认总结提示词</button>
+              <output class="settings-status" id="ai-prompts-status" aria-live="polite"></output>
               <div class="settings-actions">
-                <button class="secondary-command" id="ai-test" type="button">测试连接</button>
-                <button class="primary-command" type="submit">保存</button>
+                <button class="primary-command" type="submit">保存提示词</button>
               </div>
             </form>
             <section class="dsh-settings">

@@ -10,4 +10,5 @@ test("本书总结只引用实际送入模型的记录并限制长度", () => {
   assert.deepEqual(result.itemIds, ["one", "two"]);
   assert.match(result.prompt, /第一条思考/);
   assert.ok(result.prompt.length < 100);
+  assert.equal(buildBookSummary([{ id: "one", bodyMd: "材料" }], undefined, "自定义总结").prompt, "自定义总结\n\n- 材料");
 });

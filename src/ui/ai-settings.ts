@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { defaultSummaryPrompt } from "../summary.ts";
 
 type Protocol =
   | "open_ai_chat_completions"
@@ -75,6 +76,7 @@ export function getAiSettings(): ProviderSettings {
 }
 
 export const getCompanionSystemPrompt = (): string => getStoredSettings().systemPrompt;
+export const getSummaryPrompt = (): string => localStorage.getItem("summary-prompt")?.trim() || defaultSummaryPrompt;
 export const getTranslationLanguage = (): string => localStorage.getItem(translationLanguageKey) || "简体中文";
 
 export function setupAiSettings(
@@ -91,12 +93,22 @@ export function setupAiSettings(
     return element;
   };
   const form = get<HTMLFormElement>("#ai-settings-form");
+  const promptsForm = get<HTMLFormElement>("#ai-prompts-form");
+  const promptsStatus = get<HTMLOutputElement>("#ai-prompts-status");
+  const summaryPrompt = get<HTMLTextAreaElement>("#ai-summary-prompt");
+  summaryPrompt.value = getSummaryPrompt();
+  get<HTMLButtonElement>("#reset-summary-prompt").addEventListener("click", () => {
+    summaryPrompt.value = defaultSummaryPrompt;
+  });
   const protocol = get<HTMLSelectElement>("#ai-protocol");
   const baseUrl = get<HTMLInputElement>("#ai-base-url");
   const model = get<HTMLInputElement>("#ai-model");
   const maxOutputTokens = get<HTMLInputElement>("#ai-max-output-tokens");
   const translationLanguage = get<HTMLSelectElement>("#translation-language");
   const systemPrompt = get<HTMLTextAreaElement>("#ai-system-prompt");
+  get<HTMLButtonElement>("#reset-system-prompt").addEventListener("click", () => {
+    systemPrompt.value = defaultSystemPrompt;
+  });
   const lookupPrompts = {
     translate: get<HTMLTextAreaElement>("#ai-translate-prompt"),
     explain: get<HTMLTextAreaElement>("#ai-explain-prompt"),
@@ -127,7 +139,7 @@ export function setupAiSettings(
     baseUrl: baseUrl.value.trim(),
     model: model.value.trim(),
     maxOutputTokens: Number(maxOutputTokens.value),
-    systemPrompt: systemPrompt.value.trim() || defaultSystemPrompt,
+    systemPrompt: getCompanionSystemPrompt(),
   });
   const providerValues = (): ProviderSettings => {
     const { systemPrompt: _, ...provider } = values();
@@ -148,11 +160,6 @@ export function setupAiSettings(
       apiKey.placeholder = "已保存到系统钥匙串";
     }
     localStorage.setItem(storageKey, JSON.stringify(values()));
-    for (const mode of ["translate", "explain"] as const) {
-      const prompt = lookupPrompts[mode].value.trim() || defaultLookupPrompts[mode];
-      localStorage.setItem(`lookup-prompt-${mode}`, prompt);
-      lookupPrompts[mode].value = prompt;
-    }
     setStatus("已保存");
   };
   const busy = (value: boolean): void => {
@@ -191,8 +198,22 @@ export function setupAiSettings(
     refreshKeyStatus();
   });
   baseUrl.addEventListener("change", refreshKeyStatus);
-  translationLanguage.addEventListener("change", () => {
-    localStorage.setItem(translationLanguageKey, translationLanguage.value);
+  promptsForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    try {
+      systemPrompt.value = systemPrompt.value.trim() || defaultSystemPrompt;
+      localStorage.setItem(storageKey, JSON.stringify({ ...getStoredSettings(), systemPrompt: systemPrompt.value }));
+      for (const mode of ["translate", "explain"] as const) {
+        lookupPrompts[mode].value = lookupPrompts[mode].value.trim() || defaultLookupPrompts[mode];
+        localStorage.setItem(`lookup-prompt-${mode}`, lookupPrompts[mode].value);
+      }
+      summaryPrompt.value = summaryPrompt.value.trim() || defaultSummaryPrompt;
+      localStorage.setItem("summary-prompt", summaryPrompt.value);
+      localStorage.setItem(translationLanguageKey, translationLanguage.value);
+      promptsStatus.textContent = "已保存";
+    } catch (error) {
+      promptsStatus.textContent = `保存失败：${String(error)}`;
+    }
   });
   dshRegistry.addEventListener("change", () => {
     if (!dshRegistry.reportValidity()) return;

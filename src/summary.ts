@@ -1,6 +1,7 @@
 type SummaryItem = { id: string; bodyMd: string };
+export const defaultSummaryPrompt = "只总结以下由我亲自记录的思考，提炼主题、论证脉络和仍待解决的问题：";
 
-export function buildBookSummary(items: SummaryItem[], maxSourceChars = 40_000): {
+export function buildBookSummary(items: SummaryItem[], maxSourceChars = 40_000, instruction = defaultSummaryPrompt): {
   prompt: string;
   itemIds: string[];
 } {
@@ -17,7 +18,7 @@ export function buildBookSummary(items: SummaryItem[], maxSourceChars = 40_000):
     if (excerpt.length < body.length) break;
   }
   return {
-    prompt: `只总结以下由我亲自记录的思考，提炼主题、论证脉络和仍待解决的问题：\n\n${sources.join("\n")}`,
+    prompt: `${instruction}\n\n${sources.join("\n")}`,
     itemIds,
   };
 }

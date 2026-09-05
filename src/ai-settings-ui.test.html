@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>提示词设置回归检查</title>
+<div id="app"></div><output id="result"></output>
+<script type="module">
+import { mountShell } from "./ui/shell.ts";
+import { setupAiSettings, getCompanionSystemPrompt, getLookupInstruction, getSummaryPrompt } from "./ui/ai-settings.ts";
+import "./styles.css";
+const elements = mountShell(document.querySelector("#app"));
+const get = (id) => document.getElementById(id);
+const panel = get("ai-settings-form").closest("aside");
+window.__TAURI_INTERNALS__ = { invoke: async (command) => {
+  if (command === "has_ai_api_key") return false;
+  throw new Error(`意外调用：${command}`);
+} };
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
+try {
+  setupAiSettings(elements.openSettings, panel, () => {}, () => {}, get("vault-path"), get("choose-vault"));
+  const form = get("ai-prompts-form");
+  assert(form.nextElementSibling.querySelector("#dsh-registry"), "提示词模块不在 DSH 上方");
+  assert(get("ai-translate-prompt").parentElement.nextElementSibling.contains(get("translation-language")), "翻译语言未紧随提示词");
+  get("ai-model").value = "";
+  get("ai-system-prompt").value = "自定义伴读";
+  get("ai-translate-prompt").value = "自定义翻译";
+  get("ai-explain-prompt").value = "自定义解释";
+  get("ai-summary-prompt").value = "自定义总结";
+  get("translation-language").value = "English";
+  form.requestSubmit();
+  assert(get("ai-prompts-status").textContent === "已保存", "独立保存失败");
+  assert(getCompanionSystemPrompt() === "自定义伴读", "伴读未保存");
+  assert(getLookupInstruction("translate") === "目标语言是English。自定义翻译", "翻译未保存");
+  assert(getLookupInstruction("explain") === "自定义解释", "解释未保存");
+  assert(getSummaryPrompt() === "自定义总结", "总结未保存");
+  for (const mode of ["system", "translate", "explain", "summary"]) get(`reset-${mode}-prompt`).click();
+  form.requestSubmit();
+  assert(!getCompanionSystemPrompt().includes("自定义"), "恢复默认未生效");
+  get("result").textContent = "PASS：模块顺序、翻译语言位置、无模型独立保存、四种提示词、恢复默认";
+} catch (error) {
+  get("result").textContent = `FAIL：${error.message}`;
+}
+</script>
+</html>

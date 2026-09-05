@@ -18,7 +18,7 @@ import {
   type SaveKnowledgeRequest,
   type ThreadConversation,
 } from "../api";
-import { getCompanionSystemPrompt, getLookupInstruction } from "./ai-settings";
+import { getCompanionSystemPrompt, getLookupInstruction, getSummaryPrompt } from "./ai-settings";
 import { buildBookSummary } from "../summary";
 import { readingContextMaterial } from "../reader-state";
 import { knowledgeNodeLabel } from "./knowledge-canvas";
@@ -806,7 +806,7 @@ export function setupCompanion(
     const items = (await listKnowledge(context.bookId)).filter((item) => item.creator === "user");
     if (version !== threadVersion || busy || loadingThread) return;
     if (!items.length) return status("本书还没有可总结的个人思考", true);
-    const summary = buildBookSummary(items);
+    const summary = buildBookSummary(items, undefined, getSummaryPrompt());
     const includedItems = items.filter((item) => summary.itemIds.includes(item.id));
     setMode("thought");
     pendingKind = "summary";
