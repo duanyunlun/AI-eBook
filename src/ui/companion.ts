@@ -165,9 +165,9 @@ export function setupCompanion(
     contextBookBound = false;
     showContext();
   };
-  const renderLookupMarkdown = (text: string): void => {
-    elements.lookupBody.innerHTML = DOMPurify.sanitize(marked.parse(text, { async: false }));
-    for (const link of elements.lookupBody.querySelectorAll<HTMLAnchorElement>("a")) {
+  const renderMarkdown = (target: HTMLElement, text: string): void => {
+    target.innerHTML = DOMPurify.sanitize(marked.parse(text, { async: false }));
+    for (const link of target.querySelectorAll<HTMLAnchorElement>("a")) {
       link.target = "_blank";
       link.rel = "noreferrer";
     }
@@ -187,8 +187,14 @@ export function setupCompanion(
       activity.textContent = activityText;
       label.append(activity);
     }
-    const body = document.createElement("p");
-    body.textContent = text;
+    const body = document.createElement("div");
+    body.className = "message-body";
+    if (role === "assistant") {
+      body.classList.add("markdown-body");
+      renderMarkdown(body, text);
+    } else {
+      body.textContent = text;
+    }
     message.append(label, body);
     elements.conversation.append(message);
     elements.conversation.scrollTop = elements.conversation.scrollHeight;
@@ -294,7 +300,7 @@ export function setupCompanion(
           if (lookupRequestId !== requestId) return;
           elements.lookupStatus.textContent = "生成中…";
           answer += delta;
-          renderLookupMarkdown(answer);
+          renderMarkdown(elements.lookupBody, answer);
         },
       );
       if (lookupRequestId === requestId) {
@@ -421,7 +427,7 @@ export function setupCompanion(
         (delta) => {
           setActivity("回答中…");
           answer += delta;
-          body.textContent = answer;
+          renderMarkdown(body, answer);
           elements.conversation.scrollTop = elements.conversation.scrollHeight;
         },
       );

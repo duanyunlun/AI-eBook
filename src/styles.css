@@ -764,15 +764,19 @@ button:disabled {
   font-size: calc(11px * var(--ui-font-scale));
 }
 
-.conversation-message p {
+.conversation-message > .message-body {
   margin: 5px 0 0;
   font-size: calc(13px * var(--ui-font-scale));
   line-height: 1.65;
+}
+
+.conversation-message.user .message-body {
+  color: var(--text);
   white-space: pre-wrap;
 }
 
-.conversation-message.user p {
-  color: var(--text);
+.conversation-message .markdown-body > :last-child {
+  margin-bottom: 0;
 }
 
 .conversation-message.user {

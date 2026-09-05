@@ -149,7 +149,7 @@ async fn generate_ai(
     };
     let generation = GenerateRequest {
         messages: request.messages,
-        max_output_tokens: 1600,
+        max_output_tokens: 4096,
         temperature: Some(0.2),
     };
     let client = AiClient::new().map_err(|error| error.to_string())?;
