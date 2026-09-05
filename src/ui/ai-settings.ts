@@ -19,6 +19,16 @@ type DshUpdateStatus = { current: DshStatus; latestVersion: string; updateAvaila
 
 const storageKey = "ai-provider-settings";
 const translationLanguageKey = "translation-language";
+export const defaultLookupPrompts = {
+  translate: "先判断所选内容是否完全为目标语言；只要包含其他语言的词句或中英混杂，就不算完全匹配。完全匹配时改为解释内容，否则完整翻译为目标语言。只输出结果。",
+  explain: "解释所选内容及必要背景，区分原文事实与推断。如果当前模型本身具备联网检索能力，可核验相关背景；无法联网时不得声称已经联网。",
+};
+
+export const getLookupPrompt = (mode: keyof typeof defaultLookupPrompts): string =>
+  localStorage.getItem(`lookup-prompt-${mode}`)?.trim() || defaultLookupPrompts[mode];
+
+export const getLookupInstruction = (mode: keyof typeof defaultLookupPrompts): string =>
+  (mode === "translate" ? `目标语言是${getTranslationLanguage()}。` : "") + getLookupPrompt(mode);
 const dshRegistryKey = "dsh-registry";
 const defaultDshRegistry = "https://registry.npmmirror.com/";
 const defaultMaxOutputTokens = 16384;
@@ -87,6 +97,16 @@ export function setupAiSettings(
   const maxOutputTokens = get<HTMLInputElement>("#ai-max-output-tokens");
   const translationLanguage = get<HTMLSelectElement>("#translation-language");
   const systemPrompt = get<HTMLTextAreaElement>("#ai-system-prompt");
+  const lookupPrompts = {
+    translate: get<HTMLTextAreaElement>("#ai-translate-prompt"),
+    explain: get<HTMLTextAreaElement>("#ai-explain-prompt"),
+  };
+  for (const mode of ["translate", "explain"] as const) {
+    lookupPrompts[mode].value = getLookupPrompt(mode);
+    get<HTMLButtonElement>(`#reset-${mode}-prompt`).addEventListener("click", () => {
+      lookupPrompts[mode].value = defaultLookupPrompts[mode];
+    });
+  }
   const apiKey = get<HTMLInputElement>("#ai-api-key");
   const status = get<HTMLOutputElement>("#ai-settings-status");
   const testButton = get<HTMLButtonElement>("#ai-test");
@@ -128,6 +148,11 @@ export function setupAiSettings(
       apiKey.placeholder = "已保存到系统钥匙串";
     }
     localStorage.setItem(storageKey, JSON.stringify(values()));
+    for (const mode of ["translate", "explain"] as const) {
+      const prompt = lookupPrompts[mode].value.trim() || defaultLookupPrompts[mode];
+      localStorage.setItem(`lookup-prompt-${mode}`, prompt);
+      lookupPrompts[mode].value = prompt;
+    }
     setStatus("已保存");
   };
   const busy = (value: boolean): void => {

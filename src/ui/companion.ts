@@ -18,7 +18,7 @@ import {
   type SaveKnowledgeRequest,
   type ThreadConversation,
 } from "../api";
-import { getCompanionSystemPrompt, getTranslationLanguage } from "./ai-settings";
+import { getCompanionSystemPrompt, getLookupInstruction } from "./ai-settings";
 import { buildBookSummary } from "../summary";
 import { readingContextMaterial } from "../reader-state";
 import { knowledgeNodeLabel } from "./knowledge-canvas";
@@ -456,7 +456,6 @@ export function setupCompanion(
     hideSelectionActions();
     const requestId = crypto.randomUUID();
     lookupRequestId = requestId;
-    const targetLanguage = getTranslationLanguage();
     elements.lookupTitle.textContent = mode === "translate" ? "翻译" : "解释";
     elements.lookupResultTitle.textContent = mode === "translate" ? "翻译结果" : "解释结果";
     elements.lookupStatus.textContent = mode === "translate" ? "翻译中…" : "解释中…";
@@ -475,9 +474,7 @@ export function setupCompanion(
     const material: AiMessage["content"] = [];
     if (context.text) material.push({ type: "text", text: `所选文字：\n${context.text}` });
     if (context.image) material.push({ type: "image", media_type: context.image.mediaType, data: context.image.data });
-    const instruction = mode === "translate"
-      ? `目标语言是${targetLanguage}。先判断所选内容是否完全为目标语言；只要包含其他语言的词句或中英混杂，就不算完全匹配。完全匹配时改为解释内容，否则完整翻译为目标语言。只输出结果。`
-      : "解释所选内容及必要背景，区分原文事实与推断。如果当前模型本身具备联网检索能力，可核验相关背景；无法联网时不得声称已经联网。";
+    const instruction = getLookupInstruction(mode);
     material.push({ type: "text", text: instruction });
     let answer = "";
     try {

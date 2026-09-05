@@ -26,18 +26,18 @@ type ShortcutDefinition = {
 
 const shortcutKey = "keyboard-shortcuts";
 const definitions: ShortcutDefinition[] = [
-  { id: "toggleLeft", label: "显示 / 隐藏主菜单", group: "导航", shortcut: "Mod+Shift+[" },
-  { id: "toggleRight", label: "显示 / 隐藏 AI 伴读", group: "导航", shortcut: "Mod+Shift+]" },
-  { id: "openChapters", label: "打开目录", group: "导航", shortcut: "Mod+Shift+C" },
-  { id: "openLibrary", label: "打开书库", group: "导航", shortcut: "Mod+Shift+L" },
-  { id: "openKnowledge", label: "打开知识库", group: "导航", shortcut: "Mod+Shift+K" },
+  { id: "toggleLeft", label: "显示 / 隐藏主菜单", group: "导航", shortcut: "M" },
+  { id: "toggleRight", label: "显示 / 隐藏 AI 伴读", group: "导航", shortcut: "F" },
+  { id: "openChapters", label: "打开目录", group: "导航", shortcut: "C" },
+  { id: "openLibrary", label: "打开书库", group: "导航", shortcut: "Mod+L" },
+  { id: "openKnowledge", label: "打开知识库", group: "导航", shortcut: "Mod+K" },
   { id: "openBook", label: "打开书籍", group: "导航", shortcut: "Mod+O" },
   { id: "openSettings", label: "打开设置", group: "导航", shortcut: "Mod+," },
-  { id: "think", label: "思考所选内容", group: "阅读动作", shortcut: "Alt+A" },
-  { id: "record", label: "记录所选内容", group: "阅读动作", shortcut: "Alt+N" },
-  { id: "translate", label: "翻译所选内容", group: "阅读动作", shortcut: "Alt+T" },
-  { id: "explain", label: "解释所选内容", group: "阅读动作", shortcut: "Alt+E" },
-  { id: "capture", label: "截取页面区域", group: "阅读动作", shortcut: "Alt+S" },
+  { id: "think", label: "思考所选内容", group: "阅读动作", shortcut: "A" },
+  { id: "record", label: "记录所选内容", group: "阅读动作", shortcut: "D" },
+  { id: "translate", label: "翻译所选内容", group: "阅读动作", shortcut: "T" },
+  { id: "explain", label: "解释所选内容", group: "阅读动作", shortcut: "E" },
+  { id: "capture", label: "截取页面区域", group: "阅读动作", shortcut: "S" },
   { id: "sendQueue", label: "发送 / 排队", group: "AI 对话", shortcut: "Enter" },
   { id: "interrupt", label: "插队发送", group: "AI 对话", shortcut: "Mod+Enter" },
 ];

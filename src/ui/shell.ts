@@ -300,6 +300,16 @@ export function mountShell(app: HTMLElement): ShellElements {
                 <span>伴读提示词</span>
                 <textarea id="ai-system-prompt" rows="5" aria-label="伴读系统提示词"></textarea>
               </label>
+              <label class="system-prompt-setting">
+                <span>翻译提示词</span>
+                <textarea id="ai-translate-prompt" rows="5"></textarea>
+              </label>
+              <button class="secondary-command" id="reset-translate-prompt" type="button">恢复默认翻译提示词</button>
+              <label class="system-prompt-setting">
+                <span>解释提示词</span>
+                <textarea id="ai-explain-prompt" rows="5"></textarea>
+              </label>
+              <button class="secondary-command" id="reset-explain-prompt" type="button">恢复默认解释提示词</button>
               <label>
                 <span>API Key</span>
                 <input id="ai-api-key" type="password" autocomplete="off" spellcheck="false" />
