@@ -16,6 +16,8 @@ const threads = new Map([["old", { id: "old", title: "旧版关闭的对话", me
 const selected = new Map([["book", "old"]]);
 const owners = new Map([["old", "book"]]);
 let failSave = false;
+let failDelete = false;
+let deleteCount = 0;
 let pendingGeneration;
 let generateCount = 0;
 let lastRequest;
@@ -37,6 +39,15 @@ window.__TAURI_INTERNALS__ = {
       if (owners.get(args.threadId) !== args.bookId) throw new Error("跨书会话");
       selected.set(args.bookId, args.threadId);
       return structuredClone(threads.get(args.threadId));
+    }
+    if (command === "delete_thread") {
+      deleteCount++;
+      if (failDelete) throw new Error("模拟删除失败");
+      if (owners.get(args.threadId) !== args.bookId) throw new Error("跨书删除");
+      threads.delete(args.threadId);
+      owners.delete(args.threadId);
+      if (selected.get(args.bookId) === args.threadId) selected.delete(args.bookId);
+      return;
     }
     if (command === "search_knowledge") return [];
     if (command === "append_thread_message") {
@@ -131,6 +142,36 @@ try {
   window.getSelection().removeAllRanges();
   external.remove();
   report.push("通过：临时对话隔离，返回书籍恢复原会话");
+  elements.threadHistory.click();
+  await until(() => !elements.threadList.hidden);
+  const otherRow = elements.threadList.querySelector(`[data-thread-id="${newId}"]`);
+  const removeButton = otherRow.querySelector(":scope > .thread-delete");
+  removeButton.click();
+  check(!otherRow.querySelector(".thread-delete-confirmation").hidden && deleteCount === 0, "点击删除时没有确认就执行删除");
+  otherRow.querySelector(".thread-delete-confirmation button:last-child").click();
+  check(otherRow.querySelector(".thread-delete-confirmation").hidden && threads.has(newId), "取消删除没有保留记录");
+  removeButton.click();
+  failDelete = true;
+  otherRow.querySelector(".thread-delete-confirmation .thread-delete").click();
+  await until(settled);
+  check(threads.has(newId) && otherRow.textContent.includes("删除失败"), "删除失败没有保留记录或提示错误");
+  failDelete = false;
+  otherRow.querySelector(".thread-delete-confirmation .thread-delete").click();
+  await until(settled);
+  check(!threads.has(newId) && !otherRow.isConnected && selected.get("book") === "old", "删除非当前对话影响当前选择");
+  check(elements.conversation.textContent.includes("已中断"), "删除其他对话清空了当前内容");
+  report.push("通过：删除确认、取消、失败重试及非当前对话删除");
+  const currentRow = elements.threadList.querySelector('[data-thread-id="old"]');
+  currentRow.querySelector(":scope > .thread-delete").click();
+  currentRow.querySelector(".thread-delete-confirmation .thread-delete").click();
+  await until(settled);
+  check(!threads.has("old") && !elements.conversation.textContent, "删除当前对话后仍保留失效上下文");
+  companion.setBook(book);
+  await until(settled);
+  check(!elements.conversation.textContent, "重新开书复活了已删除对话");
+  report.push("通过：删除当前对话清理上下文，重新开书不复活");
+  elements.clearConversation.click();
+  await until(settled);
   elements.threadHistory.click();
   await until(() => !elements.threadList.hidden);
   elements.annotationDrawer.setAttribute("aria-hidden", "false");

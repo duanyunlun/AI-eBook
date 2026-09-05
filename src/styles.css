@@ -588,13 +588,33 @@ button:disabled {
   width: 100%;
   padding: 8px;
   border: 0;
-  border-bottom: 1px solid var(--border);
   text-align: left;
   color: var(--text);
   background: transparent;
   cursor: pointer;
   overflow-wrap: anywhere;
 }
+
+.thread-history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  border-bottom: 1px solid var(--border);
+}
+
+.thread-list .thread-delete {
+  color: var(--error);
+  white-space: nowrap;
+}
+
+.thread-delete-confirmation {
+  grid-column: 1 / -1;
+  padding: 0 8px 8px;
+  font-size: calc(12px * var(--ui-font-scale));
+}
+
+.thread-delete-confirmation p { margin: 4px 0; }
+.thread-delete-confirmation button { display: inline-block; width: auto; }
 
 .thread-list button[aria-current="true"] {
   color: var(--accent-hover);

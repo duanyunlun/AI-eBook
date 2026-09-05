@@ -51,6 +51,8 @@ export const createThreadForBook = (bookId: string, mode = "thought"): Promise<T
   invoke("create_thread_for_book", { bookId, mode });
 export const selectThread = (threadId: string, bookId: string): Promise<ThreadConversation> =>
   invoke("select_thread", { threadId, bookId });
+export const deleteThread = (threadId: string, bookId: string): Promise<void> =>
+  invoke("delete_thread", { threadId, bookId });
 
 export type ReadingContext = {
   bookId: string;

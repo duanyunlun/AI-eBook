@@ -239,6 +239,7 @@ fn main() {
             knowledge::select_thread,
             knowledge::load_latest_thread,
             knowledge::close_thread,
+            knowledge::delete_thread,
             history::get_vault_path,
             history::choose_vault
         ])

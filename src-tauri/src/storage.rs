@@ -763,6 +763,19 @@ impl KnowledgeStore {
         Ok(())
     }
 
+    pub fn delete_thread(&self, id: &str, book_id: &str) -> Result<(), StorageError> {
+        let changed = self.lock()?.execute(
+            "DELETE FROM threads WHERE id = ? AND book_id = ?",
+            params![id, book_id],
+        )?;
+        if changed == 0 {
+            return Err(StorageError::InvalidInput(
+                "会话不存在或不属于该书籍".into(),
+            ));
+        }
+        Ok(())
+    }
+
     fn load_thread(&self, id: &str) -> Result<Option<ThreadConversation>, StorageError> {
         let connection = self.lock()?;
         let title = connection
@@ -1167,6 +1180,101 @@ mod tests {
             "page": 3, "role": role, "body": body,
         }))
         .unwrap()
+    }
+
+    #[test]
+    fn delete_thread_is_book_scoped_and_cascades_without_deleting_knowledge() {
+        let store = KnowledgeStore::in_memory().unwrap();
+        store.lock().unwrap().execute_batch(
+            "INSERT INTO books (id, title, created_at, updated_at) VALUES
+                ('book', '书', 0, 0), ('other', '另一本书', 0, 0);
+             INSERT INTO knowledge_items
+                (id, kind, book_id, body_md, creator, basis, review_state, created_at, updated_at)
+             VALUES ('note', 'thought', 'book', '保留笔记', 'user', 'user_thought', 'confirmed', 0, 0);"
+        ).unwrap();
+        let inactive = store
+            .append_message(&message_request(None, "book", "user", "旧问题"))
+            .unwrap();
+        let selected = store
+            .append_message(&message_request(None, "book", "user", "当前问题"))
+            .unwrap();
+        let other = store.create_thread_for_book("other", "thought").unwrap();
+        for (thread_id, book_id) in [
+            (selected.id.as_str(), "other"),
+            ("missing", "book"),
+            (selected.id.as_str(), "missing"),
+        ] {
+            assert!(matches!(
+                store.delete_thread(thread_id, book_id),
+                Err(StorageError::InvalidInput(_))
+            ));
+        }
+        assert_eq!(
+            store
+                .load_thread(&selected.id)
+                .unwrap()
+                .unwrap()
+                .messages
+                .len(),
+            1
+        );
+        assert_eq!(
+            store
+                .list_threads_for_book("book", "thought")
+                .unwrap()
+                .len(),
+            2
+        );
+
+        store.delete_thread(&inactive.id, "book").unwrap();
+        assert!(store.load_thread(&inactive.id).unwrap().is_none());
+        assert_eq!(
+            store
+                .lock()
+                .unwrap()
+                .query_row(
+                    "SELECT thread_id FROM selected_threads WHERE book_id = 'book'",
+                    [],
+                    |row| row.get::<_, String>(0),
+                )
+                .unwrap(),
+            selected.id
+        );
+        store.delete_thread(&selected.id, "book").unwrap();
+        assert!(store.load_thread(&selected.id).unwrap().is_none());
+        assert!(store.delete_thread(&selected.id, "book").is_err());
+        let connection = store.lock().unwrap();
+        for query in [
+            "SELECT count(*) FROM messages",
+            "SELECT count(*) FROM selected_threads WHERE book_id = 'book'",
+        ] {
+            assert_eq!(
+                connection
+                    .query_row(query, [], |row| row.get::<_, i64>(0))
+                    .unwrap(),
+                0
+            );
+        }
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT thread_id FROM selected_threads WHERE book_id = 'other'",
+                    [],
+                    |row| row.get::<_, String>(0),
+                )
+                .unwrap(),
+            other.id
+        );
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT body_md FROM knowledge_items WHERE id = 'note' AND book_id = 'book'",
+                    [],
+                    |row| row.get::<_, String>(0),
+                )
+                .unwrap(),
+            "保留笔记"
+        );
     }
 
     #[test]

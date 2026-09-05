@@ -540,3 +540,14 @@ pub fn close_thread(
         .close_thread(&thread_id, &book_id)
         .map_err(|error| error.to_string())
 }
+
+#[tauri::command]
+pub fn delete_thread(
+    store: State<'_, KnowledgeStore>,
+    thread_id: String,
+    book_id: String,
+) -> Result<(), String> {
+    store
+        .delete_thread(&thread_id, &book_id)
+        .map_err(|error| error.to_string())
+}

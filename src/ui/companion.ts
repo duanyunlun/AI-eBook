@@ -4,6 +4,7 @@ import {
   appendThreadMessage,
   cancelAi,
   createThreadForBook,
+  deleteThread,
   listThreadsForBook,
   selectThread,
   listKnowledge,
@@ -313,17 +314,84 @@ export function setupCompanion(
       return;
     }
     const version = threadVersion;
-    const items = await listThreadsForBook(bookContext.bookId);
+    const bookId = bookContext.bookId;
+    const items = await listThreadsForBook(bookId);
     if (version !== threadVersion) return;
     elements.threadList.replaceChildren();
     if (!items.length) elements.threadList.textContent = "本书还没有历史对话";
     for (const item of items) {
+      const row = document.createElement("div");
+      row.className = "thread-history-row";
+      row.dataset.threadId = item.id;
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = `${item.title || "新对话"} · ${new Date(item.updatedAt).toLocaleString()}${item.page > 0 ? ` · 第 ${item.page} 页` : ""}`;
       button.setAttribute("aria-current", String(item.id === threadId));
       button.addEventListener("click", () => void changeThread(item.id).catch((error) => status(String(error), true)));
-      elements.threadList.append(button);
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "thread-delete";
+      remove.textContent = "删除";
+      remove.setAttribute("aria-label", `删除对话：${item.title || "新对话"}`);
+      remove.setAttribute("aria-expanded", "false");
+      const confirmation = document.createElement("div");
+      confirmation.className = "thread-delete-confirmation";
+      confirmation.hidden = true;
+      const notice = document.createElement("p");
+      notice.setAttribute("role", "status");
+      notice.textContent = "删除此对话及消息？应用内无法撤销，已保存的笔记不受影响。";
+      const confirm = document.createElement("button");
+      confirm.type = "button";
+      confirm.className = "thread-delete";
+      confirm.textContent = "确认删除";
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.textContent = "取消";
+      remove.addEventListener("click", () => {
+        if (busy || loadingThread) return;
+        confirmation.hidden = false;
+        remove.setAttribute("aria-expanded", "true");
+        cancel.focus();
+      });
+      cancel.addEventListener("click", () => {
+        confirmation.hidden = true;
+        remove.setAttribute("aria-expanded", "false");
+        remove.focus();
+      });
+      confirm.addEventListener("click", async () => {
+        if (busy || loadingThread || !contextBookBound || bookContext?.bookId !== bookId) return;
+        const deletionVersion = ++threadVersion;
+        const isCurrent = threadId === item.id;
+        loadingThread = true;
+        setBusy(busy);
+        confirm.disabled = true;
+        cancel.disabled = true;
+        try {
+          await deleteThread(item.id, bookId);
+          if (deletionVersion !== threadVersion) return;
+          if (isCurrent) {
+            switchConversation(bookId);
+            elements.questionInput.focus();
+          } else {
+            row.remove();
+            if (!elements.threadList.children.length) elements.threadList.textContent = "本书还没有历史对话";
+          }
+          status("对话已删除，已保存的笔记不受影响");
+        } catch (error) {
+          if (deletionVersion === threadVersion) notice.textContent = `删除失败，记录仍保留：${String(error)}`;
+        } finally {
+          if (deletionVersion === threadVersion) {
+            loadingThread = false;
+            setBusy(busy);
+            if (!row.isConnected) elements.threadHistory.focus();
+          }
+          confirm.disabled = false;
+          cancel.disabled = false;
+        }
+      });
+      confirmation.append(notice, confirm, cancel);
+      row.append(button, remove, confirmation);
+      elements.threadList.append(row);
     }
     elements.threadList.hidden = false;
     elements.threadHistory.setAttribute("aria-expanded", "true");
