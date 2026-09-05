@@ -201,6 +201,12 @@ export function mountShell(app: HTMLElement): ShellElements {
               <div class="conversation" id="conversation"></div>
               <div class="related-knowledge" id="related-knowledge" hidden></div>
               <form class="question-form" id="question-form">
+                <button class="save-answer" id="save-answer" type="button" aria-label="录入知识库" title="录入知识库" hidden>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20.7 3.3c-4.8-.5-8.8 1-11.8 4.1-2.5 2.6-3.8 5.8-4.4 9.2l2.9-2.8 2.8 2.8-2.8 2.9c3.4-.6 6.6-1.9 9.2-4.4 3.1-3 4.6-7 4.1-11.8Z" />
+                    <path d="m4 20 8.4-8.4" />
+                  </svg>
+                </button>
                 <textarea id="question-input" rows="3" placeholder="写下你的问题或想法" aria-label="问题或想法"></textarea>
                 <div class="question-resizer" id="question-resizer" role="separator" tabindex="0" aria-label="调整输入框高度" aria-orientation="vertical"></div>
               </form>
@@ -219,12 +225,6 @@ export function mountShell(app: HTMLElement): ShellElements {
             </section>
             <output class="companion-status" id="companion-status" aria-live="polite"></output>
           </div>
-          <button class="save-answer" id="save-answer" type="button" aria-label="录入知识库" title="录入知识库" hidden>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M20.7 3.3c-4.8-.5-8.8 1-11.8 4.1-2.5 2.6-3.8 5.8-4.4 9.2l2.9-2.8 2.8 2.8-2.8 2.9c3.4-.6 6.6-1.9 9.2-4.4 3.1-3 4.6-7 4.1-11.8Z" />
-              <path d="m4 20 8.4-8.4" />
-            </svg>
-          </button>
         </aside>
         <button class="drawer-trigger annotation-trigger" id="annotation-toggle" type="button" aria-controls="annotation-drawer" aria-expanded="false" aria-label="展开批注"></button>
 
