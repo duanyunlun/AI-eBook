@@ -40,8 +40,17 @@ export type KnowledgeGraph = {
 
 export type ThreadConversation = {
   id: string;
-  messages: Array<{ id: string; role: "user" | "assistant"; body: string; createdAt: number }>;
+  title: string;
+  messages: Array<{ id: string; role: "user" | "assistant"; body: string; createdAt: number; contextJson?: string | null; state: "complete" | "interrupted" | "failed" }>;
 };
+
+export type ThreadSummary = { id: string; title: string; updatedAt: number; page: number };
+export const listThreadsForBook = (bookId: string, mode = "thought"): Promise<ThreadSummary[]> =>
+  invoke("list_threads_for_book", { bookId, mode });
+export const createThreadForBook = (bookId: string, mode = "thought"): Promise<ThreadConversation> =>
+  invoke("create_thread_for_book", { bookId, mode });
+export const selectThread = (threadId: string, bookId: string): Promise<ThreadConversation> =>
+  invoke("select_thread", { threadId, bookId });
 
 export type ReadingContext = {
   bookId: string;
@@ -122,6 +131,8 @@ export const appendThreadMessage = (request: {
   page: number;
   role: "user" | "assistant";
   body: string;
+  contextJson?: string;
+  state?: "complete" | "interrupted" | "failed";
 }): Promise<ThreadConversation> => invoke("append_thread_message", { request });
 export const loadLatestThread = (
   bookId: string,

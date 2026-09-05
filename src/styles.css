@@ -542,8 +542,7 @@ button:disabled {
 
 .companion-header-actions {
   display: flex;
-  width: 68px;
-  flex: 0 0 68px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
@@ -562,6 +561,55 @@ button:disabled {
 .clear-conversation:hover:not(:disabled) {
   color: var(--accent-hover);
 }
+
+.thread-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-font-scale));
+}
+
+#thread-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thread-list {
+  max-height: 220px;
+  overflow: auto;
+  flex-shrink: 0;
+}
+
+.thread-list button {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  color: var(--text);
+  background: transparent;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.thread-list button[aria-current="true"] {
+  color: var(--accent-hover);
+}
+
+.message-source {
+  margin-top: 6px;
+  font-size: calc(11px * var(--ui-font-scale));
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.message-source img { max-width: 100%; }
+.message-source summary { cursor: pointer; }
 
 .companion-body {
   display: flex;

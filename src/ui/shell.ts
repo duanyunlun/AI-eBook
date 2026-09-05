@@ -44,6 +44,9 @@ export type ShellElements = {
   summarizeNotes: HTMLButtonElement;
   capturePage: HTMLButtonElement;
   clearConversation: HTMLButtonElement;
+  threadHistory: HTMLButtonElement;
+  threadTitle: HTMLElement;
+  threadList: HTMLElement;
   companionStatus: HTMLElement;
   emptyState: HTMLElement;
   pageStage: HTMLElement;
@@ -188,7 +191,7 @@ export function mountShell(app: HTMLElement): ShellElements {
               <button id="record-mode" type="button" role="tab" aria-selected="false">记录</button>
             </div>
             <div class="companion-header-actions">
-              <button class="clear-conversation" id="clear-conversation" type="button" title="清空当前对话">清空</button>
+              <button class="clear-conversation" id="clear-conversation" type="button" title="开始新对话，保留历史记录">新对话</button>
               <button class="icon-command capture-page" id="capture-page" type="button" aria-label="截取当前页" title="截取当前页">▣</button>
             </div>
           </header>
@@ -198,6 +201,8 @@ export function mountShell(app: HTMLElement): ShellElements {
               <button class="selection-clear" id="selection-clear" type="button" aria-label="清除所选内容" title="清除所选内容">×</button>
             </div>
             <section class="thought-panel" id="thought-panel">
+              <div class="thread-toolbar"><span id="thread-title">新对话</span><button class="clear-conversation" id="thread-history" type="button" aria-expanded="false" aria-controls="thread-list">历史</button></div>
+              <div class="thread-list" id="thread-list" aria-label="本书历史对话" hidden></div>
               <div class="conversation" id="conversation"></div>
               <form class="question-form" id="question-form">
                 <button class="save-answer" id="save-answer" type="button" aria-label="录入知识库" title="录入知识库" hidden>
@@ -433,6 +438,9 @@ export function mountShell(app: HTMLElement): ShellElements {
     summarizeNotes: get("#summarize-notes"),
     capturePage: get("#capture-page"),
     clearConversation: get("#clear-conversation"),
+    threadHistory: get("#thread-history"),
+    threadTitle: get("#thread-title"),
+    threadList: get("#thread-list"),
     companionStatus: get("#companion-status"),
     emptyState: get("#empty-state"),
     pageStage: get("#page-stage"),

@@ -268,13 +268,44 @@ pub struct ThreadMessage {
     pub role: String,
     pub body: String,
     pub created_at: i64,
+    pub context_json: Option<String>,
+    pub state: MessageState,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MessageState {
+    #[default]
+    Complete,
+    Interrupted,
+    Failed,
+}
+
+impl MessageState {
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Complete => "complete",
+            Self::Interrupted => "interrupted",
+            Self::Failed => "failed",
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadConversation {
     pub id: String,
+    pub title: String,
     pub messages: Vec<ThreadMessage>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadSummary {
+    pub id: String,
+    pub title: String,
+    pub updated_at: i64,
+    pub page: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -286,6 +317,9 @@ pub struct AppendMessageRequest {
     pub page: i64,
     pub role: String,
     pub body: String,
+    pub context_json: Option<String>,
+    #[serde(default)]
+    pub state: MessageState,
 }
 
 #[derive(Debug, Deserialize)]
@@ -447,16 +481,42 @@ pub fn append_thread_message(
     request: AppendMessageRequest,
 ) -> Result<ThreadConversation, String> {
     let conversation = store
-        .append_message(
-            request.thread_id.as_deref(),
-            &request.mode,
-            &request.book_id,
-            request.page,
-            &request.role,
-            &request.body,
-        )
+        .append_message(&request)
         .map_err(|error| error.to_string())?;
     Ok(conversation)
+}
+
+#[tauri::command]
+pub fn list_threads_for_book(
+    store: State<'_, KnowledgeStore>,
+    book_id: String,
+    mode: String,
+) -> Result<Vec<ThreadSummary>, String> {
+    store
+        .list_threads_for_book(&book_id, &mode)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn create_thread_for_book(
+    store: State<'_, KnowledgeStore>,
+    book_id: String,
+    mode: String,
+) -> Result<ThreadConversation, String> {
+    store
+        .create_thread_for_book(&book_id, &mode)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn select_thread(
+    store: State<'_, KnowledgeStore>,
+    thread_id: String,
+    book_id: String,
+) -> Result<ThreadConversation, String> {
+    store
+        .select_thread(&thread_id, &book_id)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

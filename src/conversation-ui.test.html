@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>对话管理界面回归检查</title>
+<div id="app"></div>
+<output id="result" style="position:fixed;top:20px;left:20px;z-index:9999;max-width:45%;white-space:pre-wrap">检查中…</output>
+<script type="module">
+import { mountShell } from "./ui/shell.ts";
+import { setupCompanion } from "./ui/companion.ts";
+import "./styles.css";
+
+const result = document.querySelector("#result");
+const elements = mountShell(document.querySelector("#app"));
+const messages = [{ id: "question", role: "user", body: "这句话是什么意思？", createdAt: 1, state: "complete", contextJson: JSON.stringify({ page: 20, content: [{ type: "text", text: "昨日原文" }] }) }];
+const threads = new Map([["old", { id: "old", title: "旧版关闭的对话", messages }]]);
+const selected = new Map([["book", "old"]]);
+const owners = new Map([["old", "book"]]);
+let failSave = false;
+let pendingGeneration;
+let generateCount = 0;
+let lastRequest;
+let holdGeneration = false;
+window.__TAURI_INTERNALS__ = {
+  transformCallback: () => 1,
+  unregisterCallback: () => {},
+  invoke: async (command, args) => {
+    if (command === "load_latest_thread") return structuredClone(threads.get(selected.get(args.bookId)) ?? null);
+    if (command === "list_threads_for_book") return [...threads.values()].filter((thread) => owners.get(thread.id) === args.bookId).map((thread) => ({ ...thread, page: 20, updatedAt: 1788569000000 }));
+    if (command === "create_thread_for_book") {
+      const thread = { id: crypto.randomUUID(), title: "新对话", messages: [] };
+      threads.set(thread.id, thread);
+      owners.set(thread.id, args.bookId);
+      selected.set(args.bookId, thread.id);
+      return structuredClone(thread);
+    }
+    if (command === "select_thread") {
+      if (owners.get(args.threadId) !== args.bookId) throw new Error("跨书会话");
+      selected.set(args.bookId, args.threadId);
+      return structuredClone(threads.get(args.threadId));
+    }
+    if (command === "search_knowledge") return [];
+    if (command === "append_thread_message") {
+      if (failSave) throw new Error("模拟保存失败");
+      const request = args.request;
+      if (owners.get(request.threadId) !== request.bookId) throw new Error("写错书籍");
+      const thread = threads.get(request.threadId);
+      thread.messages.push({ ...request, id: crypto.randomUUID(), state: request.state ?? "complete", createdAt: Date.now() });
+      return structuredClone(thread);
+    }
+    if (command === "generate_ai") {
+      generateCount++;
+      lastRequest = args.request;
+      args.onEvent.onmessage({ type: "delta", data: "测试回答" });
+      if (holdGeneration) await new Promise((resolve) => { pendingGeneration = resolve; });
+      return;
+    }
+    if (command === "cancel_ai") { pendingGeneration?.(); return; }
+    throw new Error(`未模拟接口 ${command}`);
+  },
+};
+const companion = setupCompanion(elements, () => {}, () => false, async () => ({ page: 80, pageText: "今日原文" }), () => {}, () => {}, () => {});
+const book = { bookId: "book", bookTitle: "测试书籍", bookFormat: "pdf", page: 80, totalPages: 100 };
+const check = (condition, message) => { if (!condition) throw new Error(message); };
+const until = async (condition) => {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    if (condition()) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("等待状态超时");
+};
+const settled = () => !elements.clearConversation.disabled;
+const report = [];
+try {
+  companion.setBook(book);
+  await until(settled);
+  check(elements.conversation.textContent.includes("昨日原文"), "历史来源丢失");
+  elements.clearConversation.click();
+  await until(settled);
+  const newId = selected.get("book");
+  check(newId !== "old" && threads.has("old") && !elements.conversation.textContent, "新建删除旧记录");
+  companion.setBook(book);
+  await until(settled);
+  check(!elements.conversation.textContent, "空会话没有恢复");
+  elements.threadHistory.click();
+  await until(() => !elements.threadList.hidden);
+  elements.threadList.querySelector("button").click();
+  await until(settled);
+  check(selected.get("book") === "old", "历史选择失败");
+  report.push("通过：新建保留历史、恢复空对话、重新打开旧对话");
+  elements.questionInput.value = "继续讨论";
+  companion.submit("queue");
+  await until(settled);
+  check(lastRequest.messages.some((message) => message.content.some((part) => part.text === "昨日原文")), "未恢复旧材料到请求");
+  const savedQuestion = threads.get("old").messages.at(-2);
+  check(JSON.parse(savedQuestion.contextJson).page === 80, "新问题来源页码错误");
+  report.push("通过：旧材料参与追问、新问题保存当前页来源");
+  const beforeFailure = generateCount;
+  failSave = true;
+  elements.questionInput.value = "保存失败的问题";
+  companion.submit("queue");
+  await until(settled);
+  check(generateCount === beforeFailure, "保存失败仍请求 AI");
+  failSave = false;
+  report.push("通过：问题保存失败不调用 AI");
+  holdGeneration = true;
+  elements.questionInput.value = "切书前的问题";
+  companion.submit("queue");
+  await until(() => Boolean(pendingGeneration));
+  companion.setBook({ ...book, bookId: "other", bookTitle: "另一本书" });
+  await until(settled);
+  check(!elements.conversation.textContent, "旧回答污染新书界面");
+  check(threads.get("old").messages.at(-1).state === "interrupted", "未保存中断状态到原会话");
+  report.push("通过：切书隔离旧回答、中断状态写回原会话");
+  companion.setBook(book);
+  await until(settled);
+  check(elements.conversation.textContent.includes("已中断"), "中断状态未恢复显示");
+  const external = document.createElement("p");
+  external.textContent = "界面外部选区";
+  document.body.append(external);
+  const range = document.createRange();
+  range.selectNodeContents(external);
+  window.getSelection().removeAllRanges();
+  window.getSelection().addRange(range);
+  external.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+  await until(() => elements.threadTitle.textContent.includes("临时对话"));
+  check(!elements.conversation.textContent && elements.threadHistory.disabled, "临时对话混入书籍记录");
+  elements.clearConversation.click();
+  companion.selectText("书籍选区", 80);
+  await until(settled);
+  check(elements.conversation.textContent.includes("已中断"), "返回书籍未恢复原对话");
+  window.getSelection().removeAllRanges();
+  external.remove();
+  report.push("通过：临时对话隔离，返回书籍恢复原会话");
+  elements.threadHistory.click();
+  await until(() => !elements.threadList.hidden);
+  elements.annotationDrawer.setAttribute("aria-hidden", "false");
+  result.textContent = report.join("\n") + "\n全部通过（模拟接口，无真实 AI 调用）";
+  result.dataset.state = "passed";
+} catch (error) {
+  result.textContent = `失败：${error.stack}`;
+  result.dataset.state = "failed";
+}
+</script>
+</html>

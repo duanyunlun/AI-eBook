@@ -10,12 +10,16 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use crate::knowledge::{
-    Creator, Evidence, EvidenceDraft, EvidenceKind, KnowledgeBasis, KnowledgeEdge, KnowledgeGraph,
-    KnowledgeItem, KnowledgeItemDraft, KnowledgeKind, RelationKind, ReviewState,
-    ThreadConversation, ThreadMessage, UpdateKnowledgeRequest,
+    AppendMessageRequest, Creator, Evidence, EvidenceDraft, EvidenceKind, KnowledgeBasis,
+    KnowledgeEdge, KnowledgeGraph, KnowledgeItem, KnowledgeItemDraft, KnowledgeKind, MessageState,
+    RelationKind, ReviewState, ThreadConversation, ThreadMessage, ThreadSummary,
+    UpdateKnowledgeRequest,
 };
 
-const SCHEMA_VERSION: i64 = 4;
+const SCHEMA_VERSION: i64 = 5;
+
+const THREAD_TITLE: &str = "SELECT COALESCE((SELECT substr(body, 1, 40) FROM messages
+    WHERE thread_id = threads.id AND role = 'user' ORDER BY created_at, rowid LIMIT 1), '新对话')";
 
 #[derive(Clone, Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -560,22 +564,32 @@ impl KnowledgeStore {
 
     pub fn append_message(
         &self,
-        thread_id: Option<&str>,
-        mode: &str,
-        book_id: &str,
-        page: i64,
-        role: &str,
-        body: &str,
+        request: &AppendMessageRequest,
     ) -> Result<ThreadConversation, StorageError> {
-        if !matches!(mode, "thought" | "record") {
-            return Err(StorageError::InvalidInput("会话模式无效".into()));
-        }
-        if !matches!(role, "user" | "assistant") || body.trim().is_empty() {
+        let AppendMessageRequest {
+            thread_id,
+            mode,
+            book_id,
+            page,
+            role,
+            body,
+            context_json,
+            state,
+        } = request;
+        validate_thread_mode(mode)?;
+        if !matches!(role.as_str(), "user" | "assistant")
+            || (body.trim().is_empty() && (role != "assistant" || *state == MessageState::Complete))
+        {
             return Err(StorageError::InvalidInput("会话消息无效".into()));
+        }
+        if let Some(context) = context_json {
+            serde_json::from_str::<serde_json::Value>(context).map_err(|_| {
+                StorageError::InvalidInput("消息 contextJson 必须为有效 JSON".into())
+            })?;
         }
         let mut connection = self.lock()?;
         let transaction = connection.transaction()?;
-        let id = thread_id.map(str::to_owned).unwrap_or_else(new_id);
+        let id = thread_id.clone().unwrap_or_else(new_id);
         let now = now_millis();
         if thread_id.is_none() {
             transaction.execute(
@@ -592,14 +606,20 @@ impl KnowledgeStore {
                     now,
                 ],
             )?;
+            transaction.execute(
+                "INSERT INTO selected_threads (book_id, thread_id) VALUES (?, ?)
+                 ON CONFLICT(book_id) DO UPDATE SET thread_id = excluded.thread_id",
+                params![book_id, id],
+            )?;
         } else {
             let changed = transaction.execute(
-                "UPDATE threads SET updated_at = ?, locator_json = ? WHERE id = ? AND book_id = ?",
+                "UPDATE threads SET updated_at = ?, locator_json = ? WHERE id = ? AND book_id = ? AND mode = ?",
                 params![
                     now,
                     serde_json::json!({"page": page}).to_string(),
                     id,
-                    book_id
+                    book_id,
+                    mode
                 ],
             )?;
             if changed == 0 {
@@ -607,8 +627,17 @@ impl KnowledgeStore {
             }
         }
         transaction.execute(
-            "INSERT INTO messages (id, thread_id, role, body, created_at) VALUES (?, ?, ?, ?, ?)",
-            params![new_id(), id, role, body.trim(), now],
+            "INSERT INTO messages (id, thread_id, role, body, created_at, context_json, state)
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
+            params![
+                new_id(),
+                id,
+                role,
+                body.trim(),
+                now,
+                context_json,
+                state.as_str()
+            ],
         )?;
         transaction.commit()?;
         drop(connection);
@@ -621,11 +650,16 @@ impl KnowledgeStore {
         book_id: &str,
         mode: &str,
     ) -> Result<Option<ThreadConversation>, StorageError> {
+        validate_thread_mode(mode)?;
         let id = self
             .lock()?
             .query_row(
-                "SELECT id FROM threads WHERE book_id = ? AND mode = ?
-                 AND status = 'active' ORDER BY updated_at DESC LIMIT 1",
+                "SELECT threads.id FROM threads
+                 LEFT JOIN selected_threads selected ON selected.book_id = threads.book_id
+                 AND selected.thread_id = threads.id
+                 WHERE threads.book_id = ? AND mode = ?
+                 AND (selected.thread_id IS NOT NULL OR status = 'active')
+                 ORDER BY (selected.thread_id IS NOT NULL) DESC, updated_at DESC, threads.rowid DESC LIMIT 1",
                 params![book_id, mode],
                 |row| row.get::<_, String>(0),
             )
@@ -633,6 +667,89 @@ impl KnowledgeStore {
         id.map(|id| self.load_thread(&id))
             .transpose()
             .map(Option::flatten)
+    }
+
+    pub fn list_threads_for_book(
+        &self,
+        book_id: &str,
+        mode: &str,
+    ) -> Result<Vec<ThreadSummary>, StorageError> {
+        validate_thread_mode(mode)?;
+        let connection = self.lock()?;
+        let mut statement = connection.prepare(&format!(
+            "SELECT id, ({THREAD_TITLE}), updated_at, locator_json FROM threads
+             WHERE book_id = ? AND mode = ? ORDER BY updated_at DESC, rowid DESC"
+        ))?;
+        statement
+            .query_map(params![book_id, mode], |row| {
+                let locator: String = row.get(3)?;
+                let locator: serde_json::Value =
+                    serde_json::from_str(&locator).map_err(|_| invalid_column(3, locator))?;
+                Ok(ThreadSummary {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    updated_at: row.get(2)?,
+                    page: locator["page"].as_i64().unwrap_or(1),
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(StorageError::from)
+    }
+
+    pub fn create_thread_for_book(
+        &self,
+        book_id: &str,
+        mode: &str,
+    ) -> Result<ThreadConversation, StorageError> {
+        validate_thread_mode(mode)?;
+        let mut connection = self.lock()?;
+        let transaction = connection.transaction()?;
+        let page = transaction
+            .query_row(
+                "SELECT last_page FROM books WHERE id = ?",
+                [book_id],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()?
+            .ok_or_else(|| StorageError::InvalidInput("书籍不存在".into()))?;
+        let id = new_id();
+        let now = now_millis();
+        transaction.execute(
+            "INSERT INTO threads (id, mode, book_id, chapter_id, locator_json, status, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, 'active', ?, ?)",
+            params![id, mode, book_id, format!("page-{page}"), serde_json::json!({"page": page}).to_string(), now, now],
+        )?;
+        transaction.execute(
+            "INSERT INTO selected_threads (book_id, thread_id) VALUES (?, ?)
+             ON CONFLICT(book_id) DO UPDATE SET thread_id = excluded.thread_id",
+            params![book_id, id],
+        )?;
+        transaction.commit()?;
+        Ok(ThreadConversation {
+            id,
+            title: "新对话".into(),
+            messages: Vec::new(),
+        })
+    }
+
+    pub fn select_thread(
+        &self,
+        id: &str,
+        book_id: &str,
+    ) -> Result<ThreadConversation, StorageError> {
+        let changed = self.lock()?.execute(
+            "INSERT INTO selected_threads (book_id, thread_id)
+             SELECT book_id, id FROM threads WHERE id = ? AND book_id = ?
+             ON CONFLICT(book_id) DO UPDATE SET thread_id = excluded.thread_id",
+            params![id, book_id],
+        )?;
+        if changed == 0 {
+            return Err(StorageError::InvalidInput(
+                "会话不存在或不属于该书籍".into(),
+            ));
+        }
+        self.load_thread(id)?
+            .ok_or_else(|| StorageError::InvalidData("所选会话不存在".into()))
     }
 
     pub fn close_thread(&self, id: &str, book_id: &str) -> Result<(), StorageError> {
@@ -648,15 +765,18 @@ impl KnowledgeStore {
 
     fn load_thread(&self, id: &str) -> Result<Option<ThreadConversation>, StorageError> {
         let connection = self.lock()?;
-        let exists = connection
-            .query_row("SELECT 1 FROM threads WHERE id = ?", [id], |_| Ok(()))
-            .optional()?
-            .is_some();
-        if !exists {
+        let title = connection
+            .query_row(
+                &format!("{THREAD_TITLE} FROM threads WHERE id = ?"),
+                [id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        let Some(title) = title else {
             return Ok(None);
-        }
+        };
         let mut statement = connection.prepare(
-            "SELECT id, role, body, created_at FROM messages
+            "SELECT id, role, body, created_at, context_json, state FROM messages
              WHERE thread_id = ? ORDER BY created_at, rowid",
         )?;
         let messages = statement
@@ -666,11 +786,19 @@ impl KnowledgeStore {
                     role: row.get(1)?,
                     body: row.get(2)?,
                     created_at: row.get(3)?,
+                    context_json: row.get(4)?,
+                    state: match row.get::<_, String>(5)?.as_str() {
+                        "complete" => MessageState::Complete,
+                        "interrupted" => MessageState::Interrupted,
+                        "failed" => MessageState::Failed,
+                        value => return Err(invalid_column(5, value.into())),
+                    },
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Some(ThreadConversation {
             id: id.into(),
+            title,
             messages,
         }))
     }
@@ -680,6 +808,13 @@ impl KnowledgeStore {
             .lock()
             .map_err(|_| StorageError::LockPoisoned)
     }
+}
+
+fn validate_thread_mode(mode: &str) -> Result<(), StorageError> {
+    if !matches!(mode, "thought" | "record") {
+        return Err(StorageError::InvalidInput("会话模式无效".into()));
+    }
+    Ok(())
 }
 
 fn migrate(connection: &mut Connection) -> Result<(), StorageError> {
@@ -721,9 +856,18 @@ fn migrate(connection: &mut Connection) -> Result<(), StorageError> {
         )?;
         transaction.commit()?;
     }
-    if current < SCHEMA_VERSION {
+    if current < 4 {
         let transaction = connection.transaction()?;
         transaction.execute_batch(include_str!("../migrations/0004_knowledge_categories.sql"))?;
+        transaction.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
+            params![4, now_millis()],
+        )?;
+        transaction.commit()?;
+    }
+    if current < SCHEMA_VERSION {
+        let transaction = connection.transaction()?;
+        transaction.execute_batch(include_str!("../migrations/0005_thread_management.sql"))?;
         transaction.execute(
             "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
             params![SCHEMA_VERSION, now_millis()],
@@ -967,17 +1111,15 @@ mod tests {
             )
             .unwrap();
         let thread = store
-            .append_message(None, "thought", &book_id, 3, "user", "这里是什么意思？")
+            .append_message(&message_request(None, &book_id, "user", "这里是什么意思？"))
             .unwrap();
         let thread = store
-            .append_message(
+            .append_message(&message_request(
                 Some(&thread.id),
-                "thought",
                 &book_id,
-                3,
                 "assistant",
                 "这是一个可追溯的回答。",
-            )
+            ))
             .unwrap();
         assert_eq!(thread.messages.len(), 2);
         assert_eq!(
@@ -1012,5 +1154,243 @@ mod tests {
                 .unwrap(),
             SCHEMA_VERSION
         );
+    }
+
+    fn message_request(
+        thread_id: Option<&str>,
+        book_id: &str,
+        role: &str,
+        body: &str,
+    ) -> AppendMessageRequest {
+        serde_json::from_value(json!({
+            "threadId": thread_id, "bookId": book_id, "mode": "thought",
+            "page": 3, "role": role, "body": body,
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn thread_history_selection_and_v4_migration_persist() {
+        let directory = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("target")
+            .join(format!("thread-test-{}", new_id()));
+        fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("state.sqlite");
+        let connection = Connection::open(&path).unwrap();
+        connection
+            .execute_batch(include_str!("../migrations/0001_knowledge.sql"))
+            .unwrap();
+        connection
+            .execute_batch(include_str!("../migrations/0002_library.sql"))
+            .unwrap();
+        connection
+            .execute_batch(include_str!("../migrations/0003_chinese_fts.sql"))
+            .unwrap();
+        connection
+            .execute_batch(include_str!("../migrations/0004_knowledge_categories.sql"))
+            .unwrap();
+        connection.execute_batch(
+            "CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL);
+             INSERT INTO schema_migrations VALUES (4, 0);
+             INSERT INTO books (id, title, created_at, updated_at, last_page) VALUES ('book', '书', 0, 0, 7), ('other', '另一本', 0, 0, 1);
+             INSERT INTO threads (id, mode, book_id, status, created_at, updated_at) VALUES
+             ('old-closed', 'thought', 'book', 'closed', 0, 30),
+             ('old-active', 'thought', 'book', 'active', 0, 20),
+             ('older-active', 'thought', 'book', 'active', 0, 10);
+             INSERT INTO messages (id, thread_id, role, body, created_at) VALUES ('old-message', 'old-closed', 'user', '旧问题', 0);"
+        ).unwrap();
+        drop(connection);
+
+        let store = KnowledgeStore::open(&path).unwrap();
+        assert_eq!(
+            store
+                .load_latest_thread("book", "thought")
+                .unwrap()
+                .unwrap()
+                .id,
+            "old-active"
+        );
+        let history = store.list_threads_for_book("book", "thought").unwrap();
+        assert_eq!(history.len(), 3);
+        assert_eq!(history[0].id, "old-closed");
+        assert_eq!(history[0].title, "旧问题");
+        assert_eq!(history[0].page, 1);
+        let closed = store.select_thread("old-closed", "book").unwrap();
+        assert_eq!(closed.messages[0].state, MessageState::Complete);
+        assert!(closed.messages[0].context_json.is_none());
+        assert_eq!(
+            store
+                .load_latest_thread("book", "thought")
+                .unwrap()
+                .unwrap()
+                .id,
+            closed.id
+        );
+        let lifecycle: (String, i64) = store
+            .lock()
+            .unwrap()
+            .query_row(
+                "SELECT status, updated_at FROM threads WHERE id = 'old-closed'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(lifecycle, ("closed".into(), 30));
+        let continued = store
+            .append_message(&message_request(
+                Some(&closed.id),
+                "book",
+                "user",
+                "继续提问",
+            ))
+            .unwrap();
+        assert_eq!(continued.messages.len(), 2);
+        assert_eq!(continued.title, "旧问题");
+        assert!(store.select_thread(&closed.id, "other").is_err());
+        assert!(store.select_thread("missing", "book").is_err());
+        assert!(
+            store
+                .append_message(&message_request(Some(&closed.id), "other", "user", "跨书"))
+                .is_err()
+        );
+        assert!(store.close_thread(&closed.id, "other").is_err());
+        assert!(
+            store
+                .load_latest_thread("other", "thought")
+                .unwrap()
+                .is_none()
+        );
+
+        let empty = store.create_thread_for_book("book", "thought").unwrap();
+        assert!(empty.messages.is_empty());
+        assert_eq!(empty.title, "新对话");
+        assert_eq!(
+            store.list_threads_for_book("book", "thought").unwrap()[0].page,
+            7
+        );
+        drop(store);
+        let store = KnowledgeStore::open(&path).unwrap();
+        let loaded = store
+            .load_latest_thread("book", "thought")
+            .unwrap()
+            .unwrap();
+        assert_eq!(loaded.id, empty.id);
+        assert!(loaded.messages.is_empty());
+        store.close_thread(&empty.id, "book").unwrap();
+        assert_eq!(
+            store
+                .load_latest_thread("book", "thought")
+                .unwrap()
+                .unwrap()
+                .id,
+            empty.id
+        );
+        let record = store.create_thread_for_book("book", "record").unwrap();
+        assert_eq!(
+            store.list_threads_for_book("book", "record").unwrap().len(),
+            1
+        );
+        assert_eq!(
+            store
+                .load_latest_thread("book", "record")
+                .unwrap()
+                .unwrap()
+                .id,
+            record.id
+        );
+        assert_ne!(
+            store
+                .load_latest_thread("book", "thought")
+                .unwrap()
+                .unwrap()
+                .id,
+            record.id
+        );
+        store.select_thread(&closed.id, "book").unwrap();
+        drop(store);
+        let store = KnowledgeStore::open(&path).unwrap();
+        assert_eq!(
+            store
+                .load_latest_thread("book", "thought")
+                .unwrap()
+                .unwrap()
+                .id,
+            closed.id
+        );
+        assert_eq!(
+            store
+                .lock()
+                .unwrap()
+                .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| row
+                    .get::<_, i64>(
+                    0
+                ))
+                .unwrap(),
+            SCHEMA_VERSION
+        );
+        drop(store);
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn thread_message_context_state_and_validation() {
+        let store = KnowledgeStore::in_memory().unwrap();
+        store
+            .lock()
+            .unwrap()
+            .execute(
+                "INSERT INTO books (id, title, created_at, updated_at) VALUES ('book', '书', 0, 0)",
+                [],
+            )
+            .unwrap();
+        let mut request = message_request(None, "book", "user", &"问🦀".repeat(30));
+        assert_eq!(request.state, MessageState::Complete);
+        assert!(request.context_json.is_none());
+        request.context_json = Some("{\"text\":\"原文\", \"page\":3,\"image\":null}".into());
+        let thread = store.append_message(&request).unwrap();
+        assert_eq!(thread.title, "问🦀".repeat(20));
+        assert_eq!(thread.messages[0].context_json, request.context_json);
+        let summary = store.list_threads_for_book("book", "thought").unwrap();
+        assert_eq!(summary[0].title, thread.title);
+        assert_eq!(summary[0].page, 3);
+        request.thread_id = Some(thread.id.clone());
+        request.role = "assistant".into();
+        request.body = "  ".into();
+        assert!(store.append_message(&request).is_err());
+        for state in [MessageState::Interrupted, MessageState::Failed] {
+            request.state = state;
+            let saved = store.append_message(&request).unwrap();
+            assert_eq!(saved.messages.last().unwrap().state, state);
+            assert_eq!(saved.messages.last().unwrap().body, "");
+        }
+        request.role = "user".into();
+        assert!(store.append_message(&request).is_err());
+        request.body = "问题".into();
+        request.context_json = Some("not json".into());
+        assert!(store.append_message(&request).is_err());
+        request.context_json = None;
+        request.mode = "record".into();
+        assert!(store.append_message(&request).is_err());
+        request.mode = "invalid".into();
+        assert!(store.append_message(&request).is_err());
+        assert!(store.create_thread_for_book("book", "invalid").is_err());
+        assert!(store.list_threads_for_book("book", "invalid").is_err());
+        assert!(store.load_latest_thread("book", "invalid").is_err());
+        assert!(store.create_thread_for_book("missing", "thought").is_err());
+        assert!(serde_json::from_value::<AppendMessageRequest>(json!({
+            "bookId": "book", "mode": "thought", "page": 1, "role": "assistant", "body": "", "state": "invalid"
+        })).is_err());
+        let loaded = store
+            .load_latest_thread("book", "thought")
+            .unwrap()
+            .unwrap();
+        assert_eq!(loaded.messages.len(), 3);
+        let output = serde_json::to_value(loaded).unwrap();
+        assert_eq!(
+            output["messages"][0]["contextJson"],
+            thread.messages[0].context_json.as_deref().unwrap()
+        );
+        assert_eq!(output["messages"][0]["state"], "complete");
+        assert_eq!(output["messages"][2]["state"], "failed");
     }
 }
