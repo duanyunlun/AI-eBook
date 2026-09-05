@@ -199,7 +199,6 @@ export function mountShell(app: HTMLElement): ShellElements {
             </div>
             <section class="thought-panel" id="thought-panel">
               <div class="conversation" id="conversation"></div>
-              <div class="related-knowledge" id="related-knowledge" hidden></div>
               <form class="question-form" id="question-form">
                 <button class="save-answer" id="save-answer" type="button" aria-label="录入知识库" title="录入知识库" hidden>
                   <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -225,6 +224,7 @@ export function mountShell(app: HTMLElement): ShellElements {
             </section>
             <output class="companion-status" id="companion-status" aria-live="polite"></output>
           </div>
+          <div class="related-knowledge" id="related-knowledge" hidden></div>
         </aside>
         <button class="drawer-trigger annotation-trigger" id="annotation-toggle" type="button" aria-controls="annotation-drawer" aria-expanded="false" aria-label="展开批注"></button>
 

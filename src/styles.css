@@ -807,9 +807,21 @@ button:disabled {
 
 .related-knowledge {
   display: block;
+  position: absolute;
+  z-index: 1;
+  right: 100%;
+  bottom: 16px;
+  width: min(280px, calc(100vw - var(--annotation-drawer-width) - 16px));
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-right: 0;
+  border-radius: 5px 0 0 5px;
+  background: var(--surface-raised);
+  box-shadow: -8px 0 18px var(--shadow);
 }
 
 .related-knowledge small {
+  display: block;
   width: 100%;
 }
 
