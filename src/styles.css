@@ -1563,7 +1563,8 @@ body.is-resizing-question * {
 .ai-settings textarea {
   min-height: 112px;
   padding-block: 9px;
-  resize: vertical;
+  resize: none;
+  overflow-y: auto;
   line-height: 1.5;
 }
 
