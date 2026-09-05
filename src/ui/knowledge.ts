@@ -136,9 +136,11 @@ export function setupKnowledge(
     selectedId = item.id;
     elements.knowledgeDetail.innerHTML = `
       <div class="knowledge-viewer">
-        <small></small>
-        <h2></h2>
-        <div class="markdown-body"></div>
+        <div class="knowledge-viewer-content">
+          <small></small>
+          <h2></h2>
+          <div class="markdown-body"></div>
+        </div>
         <output aria-live="polite"></output>
         <div class="knowledge-editor-actions">
           <button class="danger-command" type="button">删除</button>
@@ -158,14 +160,17 @@ export function setupKnowledge(
       link.target = "_blank";
       link.rel = "noreferrer";
     }
-    const [remove, edit] = viewer.querySelectorAll<HTMLButtonElement>("button");
+    const [remove, edit] = viewer.querySelectorAll<HTMLButtonElement>(".knowledge-editor-actions button");
     const status = viewer.querySelector<HTMLOutputElement>("output")!;
     setupDelete(remove, item, status);
     edit.addEventListener("click", () => showEditor(item, true));
     for (const button of elements.knowledgeList.querySelectorAll("button")) {
       button.dataset.active = String(button.dataset.id === item.id);
     }
-    if (reveal) openDetail();
+    if (reveal) {
+      openDetail();
+      canvas.focusItem(item.id);
+    }
   };
 
   const showEditor = (item?: KnowledgeItem, reveal = false): void => {
@@ -428,7 +433,10 @@ export function setupKnowledge(
       closeDrawers();
       closeKnowledgeDrawers();
       elements.knowledgePanel.hidden = false;
-      void refresh().then(openDetail).catch(showError);
+      void refresh().then(() => {
+        openDetail();
+        canvas.focusItem(itemId);
+      }).catch(showError);
     },
   };
 }

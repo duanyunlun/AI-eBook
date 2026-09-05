@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>知识库布局回归检查</title>
+<div id="app"></div>
+<output id="result" style="position:fixed;top:0;left:0;z-index:9999">检查中…</output>
+<script type="module">
+import { mountShell } from "./ui/shell.ts";
+import { setupKnowledge } from "./ui/knowledge.ts";
+import { setupKnowledgeDrawers } from "./ui/knowledge-drawers.ts";
+import "./styles.css";
+
+const elements = mountShell(document.querySelector("#app"));
+const items = Array.from({ length: 12 }, (_, index) => ({
+  id: `item-${index}`, kind: "thought", creator: "user", title: `知识点 ${index}`,
+  bodyMd: "## 长内容\n\n正文内容，用于验证滚动与固定操作栏。\n\n".repeat(100),
+}));
+window.__TAURI_INTERNALS__ = { invoke: async (command) => {
+  if (command === "get_knowledge_graph") return { items, edges: [] };
+  if (command === "list_knowledge_books") return [];
+  throw new Error(`意外调用：${command}`);
+} };
+const drawers = setupKnowledgeDrawers(elements);
+const controller = setupKnowledge(elements, () => {}, drawers.openDetail, drawers.closeAll);
+const waitLayout = () => new Promise((resolve) => setTimeout(resolve, 250));
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
+const checkCentered = (index) => {
+  const node = elements.knowledgeGraph.querySelectorAll(".graph-node")[index];
+  const center = new DOMPoint(0, 0).matrixTransform(node.getScreenCTM());
+  const rect = elements.knowledgeGraph.getBoundingClientRect();
+  const expectedX = rect.left + (rect.width - elements.knowledgeDetailDrawer.offsetWidth) / 2;
+  assert(Math.abs(center.x - expectedX) < 1 && Math.abs(center.y - rect.top - rect.height / 2) < 1, "节点未居中");
+};
+try {
+  controller.openItem("item-11");
+  await waitLayout();
+  checkCentered(11);
+  const content = elements.knowledgeDetail.querySelector(".knowledge-viewer-content");
+  const actions = elements.knowledgeDetail.querySelector(".knowledge-editor-actions");
+  const before = actions.getBoundingClientRect();
+  const detail = elements.knowledgeDetail.getBoundingClientRect();
+  assert(content.scrollHeight > content.clientHeight, "长正文未独立滚动");
+  assert(before.bottom <= detail.bottom && before.top >= detail.top, "底部按钮不可见");
+  content.scrollTop = content.scrollHeight;
+  await waitLayout();
+  assert(actions.getBoundingClientRect().top === before.top, "正文滚动导致按钮移动");
+  elements.knowledgeZoomIn.click();
+  const zoom = elements.knowledgeZoomLevel.textContent;
+  elements.knowledgeGraph.querySelectorAll(".graph-node")[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  await waitLayout();
+  checkCentered(0);
+  assert(elements.knowledgeZoomLevel.textContent === zoom, "居中改变了缩放");
+  elements.knowledgeList.querySelector('[data-id="item-5"]').click();
+  await waitLayout();
+  checkCentered(5);
+  elements.knowledgeGraph.querySelectorAll(".graph-node")[3].dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  await waitLayout();
+  checkCentered(3);
+  document.querySelector("#result").textContent = "PASS：固定按钮、正文滚动、外部打开、节点点击、列表选择、键盘选择、保持缩放";
+} catch (error) {
+  document.querySelector("#result").textContent = `FAIL：${error.message}`;
+  throw error;
+}
+</script>
+</html>

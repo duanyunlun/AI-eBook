@@ -13,6 +13,7 @@ type NodePosition = { x: number; y: number; item: KnowledgeItem };
 
 export type KnowledgeCanvasController = {
   render: (items: KnowledgeItem[], edges: KnowledgeEdge[], books: BookReference[]) => void;
+  focusItem: (itemId: string) => void;
 };
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -60,6 +61,8 @@ export function setupKnowledgeCanvas(
   let scale = 1;
   let offsetX = 0;
   let offsetY = 0;
+  let layoutFrame = 0;
+  const positions = new Map<string, NodePosition>();
   let pointerId: number | undefined;
   let startX = 0;
   let startY = 0;
@@ -105,6 +108,20 @@ export function setupKnowledgeCanvas(
     applyTransform();
   };
 
+  const focusItem = (itemId: string): void => {
+    cancelAnimationFrame(layoutFrame);
+    layoutFrame = requestAnimationFrame(() => {
+      const position = positions.get(itemId);
+      const rect = svg.getBoundingClientRect();
+      if (!position || !rect.width || !rect.height) return;
+      const left = workspace.querySelector<HTMLElement>('.knowledge-left-drawer[aria-hidden="false"]')?.offsetWidth ?? 0;
+      const right = workspace.querySelector<HTMLElement>('.knowledge-detail-drawer[aria-hidden="false"]')?.offsetWidth ?? 0;
+      offsetX = (rect.width + left - right) / 2 - position.x * scale;
+      offsetY = rect.height / 2 - position.y * scale;
+      applyTransform();
+    });
+  };
+
   svg.addEventListener("wheel", (event) => {
     event.preventDefault();
     const rect = svg.getBoundingClientRect();
@@ -147,6 +164,8 @@ export function setupKnowledgeCanvas(
   svg.addEventListener("dblclick", fit);
 
   const render = (items: KnowledgeItem[], edges: KnowledgeEdge[], _books: BookReference[]): void => {
+    cancelAnimationFrame(layoutFrame);
+    positions.clear();
     hideColorMenu();
     svg.replaceChildren();
     svg.removeAttribute("viewBox");
@@ -177,7 +196,6 @@ export function setupKnowledgeCanvas(
       groups.set(key, group);
     }
 
-    const positions = new Map<string, NodePosition>();
     let groupX = 48;
     let groupY = 48;
     let rowHeight = 0;
@@ -312,8 +330,8 @@ export function setupKnowledgeCanvas(
       });
       viewport.append(group);
     }
-    requestAnimationFrame(fit);
+    layoutFrame = requestAnimationFrame(fit);
   };
 
-  return { render };
+  return { render, focusItem };
 }

@@ -1791,9 +1791,25 @@ label.system-prompt-setting {
 
 .knowledge-viewer {
   display: flex;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
   flex-direction: column;
   gap: 10px;
+}
+
+.knowledge-viewer-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+
+.knowledge-viewer output {
+  flex: none;
+}
+
+.knowledge-viewer output:empty {
+  display: none;
 }
 
 .knowledge-viewer h2 {
