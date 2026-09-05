@@ -32,7 +32,12 @@ try {
   assert(getLookupInstruction("translate") === "目标语言是English。自定义翻译", "翻译未保存");
   assert(getLookupInstruction("explain") === "自定义解释", "解释未保存");
   assert(getSummaryPrompt() === "自定义总结", "总结未保存");
-  for (const mode of ["system", "translate", "explain", "summary"]) get(`reset-${mode}-prompt`).click();
+  for (const mode of ["system", "translate", "explain", "summary"]) {
+    const button = get(`reset-${mode}-prompt`);
+    assert(button.textContent === "恢复默认", "按钮文案未统一");
+    assert(button.previousElementSibling.htmlFor === `ai-${mode}-prompt`, "按钮未放在对应标题下面");
+    button.click();
+  }
   form.requestSubmit();
   assert(!getCompanionSystemPrompt().includes("自定义"), "恢复默认未生效");
   get("result").textContent = "PASS：模块顺序、翻译语言位置、无模型独立保存、四种提示词、恢复默认";

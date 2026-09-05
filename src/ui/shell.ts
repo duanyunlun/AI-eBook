@@ -298,15 +298,20 @@ export function mountShell(app: HTMLElement): ShellElements {
             </form>
             <form class="ai-settings dsh-settings" id="ai-prompts-form" aria-labelledby="ai-prompts-title">
               <h2 id="ai-prompts-title">内置提示词</h2>
-              <label class="system-prompt-setting">
-                <span>伴读提示词</span>
+              <div class="system-prompt-setting">
+                <div class="prompt-heading">
+                  <label for="ai-system-prompt">伴读提示词</label>
+                  <button class="secondary-command" id="reset-system-prompt" type="button" aria-label="恢复默认伴读提示词">恢复默认</button>
+                </div>
                 <textarea id="ai-system-prompt" rows="5" aria-label="伴读系统提示词"></textarea>
-              </label>
-              <button class="secondary-command" id="reset-system-prompt" type="button">恢复默认伴读提示词</button>
-              <label class="system-prompt-setting">
-                <span>翻译提示词</span>
+              </div>
+              <div class="system-prompt-setting">
+                <div class="prompt-heading">
+                  <label for="ai-translate-prompt">翻译提示词</label>
+                  <button class="secondary-command" id="reset-translate-prompt" type="button" aria-label="恢复默认翻译提示词">恢复默认</button>
+                </div>
                 <textarea id="ai-translate-prompt" rows="5"></textarea>
-              </label>
+              </div>
               <label>
                 <span>翻译语言</span>
                 <select id="translation-language">
@@ -317,17 +322,20 @@ export function mountShell(app: HTMLElement): ShellElements {
                   <option value="한국어">한국어</option>
                 </select>
               </label>
-              <button class="secondary-command" id="reset-translate-prompt" type="button">恢复默认翻译提示词</button>
-              <label class="system-prompt-setting">
-                <span>解释提示词</span>
+              <div class="system-prompt-setting">
+                <div class="prompt-heading">
+                  <label for="ai-explain-prompt">解释提示词</label>
+                  <button class="secondary-command" id="reset-explain-prompt" type="button" aria-label="恢复默认解释提示词">恢复默认</button>
+                </div>
                 <textarea id="ai-explain-prompt" rows="5"></textarea>
-              </label>
-              <button class="secondary-command" id="reset-explain-prompt" type="button">恢复默认解释提示词</button>
-              <label class="system-prompt-setting">
-                <span>总结提示词</span>
+              </div>
+              <div class="system-prompt-setting">
+                <div class="prompt-heading">
+                  <label for="ai-summary-prompt">总结提示词</label>
+                  <button class="secondary-command" id="reset-summary-prompt" type="button" aria-label="恢复默认总结提示词">恢复默认</button>
+                </div>
                 <textarea id="ai-summary-prompt" rows="5"></textarea>
-              </label>
-              <button class="secondary-command" id="reset-summary-prompt" type="button">恢复默认总结提示词</button>
+              </div>
               <output class="settings-status" id="ai-prompts-status" aria-live="polite"></output>
               <div class="settings-actions">
                 <button class="primary-command" type="submit">保存提示词</button>
