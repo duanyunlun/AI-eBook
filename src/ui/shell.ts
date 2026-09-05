@@ -344,6 +344,10 @@ export function mountShell(app: HTMLElement): ShellElements {
             <section class="dsh-settings">
               <h2>DSH 运行时</h2>
               <label>
+                <span>对话运行时</span>
+                <select id="ai-runtime"><option value="direct">直连模型</option><option value="dsh">内置 DSH + 阅读器插件</option></select>
+              </label>
+              <label>
                 <span>npm 源</span>
                 <input id="dsh-registry" type="url" required spellcheck="false" />
               </label>
@@ -352,6 +356,11 @@ export function mountShell(app: HTMLElement): ShellElements {
                 <button class="secondary-command" id="dsh-update" type="button">检查更新</button>
               </div>
               <progress class="dsh-progress" id="dsh-progress" aria-label="DSH 任务进度" hidden></progress>
+              <output id="reader-plugin-status" aria-live="polite"></output>
+              <div class="settings-actions">
+                <button class="secondary-command" id="reader-plugin-import" type="button" title="只导入可信来源的阅读器插件目录">导入插件</button>
+                <button class="secondary-command" id="reader-plugin-restore" type="button">恢复内置插件</button>
+              </div>
             </section>
             </section>
             <section class="settings-page" data-settings-page="data" hidden>

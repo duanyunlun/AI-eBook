@@ -1486,7 +1486,8 @@ body.is-resizing-question * {
   font-size: calc(13px * var(--ui-font-scale));
 }
 
-.dsh-settings input {
+.dsh-settings input,
+.dsh-settings select {
   width: 100%;
   height: 36px;
   padding: 0 10px;
@@ -1591,6 +1592,24 @@ body.is-resizing-question * {
   padding: 3px 8px;
   font-size: calc(11px * var(--ui-font-scale));
   white-space: nowrap;
+}
+
+.reader-tool-confirm {
+  width: min(560px, calc(100vw - 40px));
+  max-height: calc(100vh - 60px);
+  padding: 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.reader-tool-note {
+  max-height: 45vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin-bottom: 16px;
 }
 
 .settings-status {

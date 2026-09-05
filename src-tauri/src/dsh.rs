@@ -20,7 +20,7 @@ pub struct DshUpdateStatus {
     update_available: bool,
 }
 
-fn runtime_root(app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn runtime_root(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app
         .path()
         .app_data_dir()
@@ -39,7 +39,7 @@ fn managed_version(app: &AppHandle) -> Result<Option<String>, String> {
     Ok(value["version"].as_str().map(str::to_owned))
 }
 
-fn executable_path(name: &str) -> PathBuf {
+pub(crate) fn executable_path(name: &str) -> PathBuf {
     [
         format!("/opt/homebrew/bin/{name}"),
         format!("/usr/local/bin/{name}"),
@@ -82,16 +82,10 @@ pub fn get_dsh_status(app: AppHandle) -> Result<DshStatus, String> {
             source: "managed".into(),
         });
     }
-    let version = Command::new(executable_path("dsh"))
-        .arg("--version")
-        .output()
-        .ok()
-        .filter(|output| output.status.success())
-        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_owned());
     Ok(DshStatus {
-        installed: version.is_some(),
-        version,
-        source: "system".into(),
+        installed: false,
+        version: None,
+        source: "managed".into(),
     })
 }
 
@@ -166,8 +160,24 @@ pub async fn check_dsh_update(app: AppHandle, registry: String) -> Result<DshUpd
 }
 
 #[tauri::command]
-pub async fn update_dsh(app: AppHandle, registry: String) -> Result<DshStatus, String> {
-    tauri::async_runtime::spawn_blocking(move || update_managed_dsh(&app, &registry))
-        .await
-        .map_err(|error| error.to_string())?
+pub(crate) async fn update_dsh(
+    app: AppHandle,
+    registry: String,
+    requests: tauri::State<'_, crate::AiRequests>,
+) -> Result<DshStatus, String> {
+    {
+        let mut state = requests.0.lock().map_err(|_| "AI 请求状态不可用")?;
+        if state.runtime_updating || !state.active.is_empty() {
+            return Err("请等待 AI 请求结束后再手动更新 DSH".into());
+        }
+        state.runtime_updating = true;
+    }
+    let result =
+        tauri::async_runtime::spawn_blocking(move || update_managed_dsh(&app, &registry)).await;
+    requests
+        .0
+        .lock()
+        .map_err(|_| "AI 请求状态不可用")?
+        .runtime_updating = false;
+    result.map_err(|error| error.to_string())?
 }

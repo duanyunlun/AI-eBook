@@ -47,6 +47,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "thiserror 2.0.20",
+ "tokio",
  "uuid",
  "zeroize",
 ]
@@ -4460,6 +4461,7 @@ dependencies = [
  "libc",
  "mio",
  "pin-project-lite",
+ "signal-hook-registry",
  "socket2",
  "windows-sys 0.61.2",
 ]

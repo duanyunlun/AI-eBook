@@ -435,7 +435,12 @@ impl KnowledgeStore {
             .map_err(StorageError::from)
     }
 
-    pub fn search(&self, query: &str, limit: usize) -> Result<Vec<KnowledgeItem>, StorageError> {
+    pub fn search(
+        &self,
+        query: &str,
+        limit: usize,
+        book_id: Option<&str>,
+    ) -> Result<Vec<KnowledgeItem>, StorageError> {
         if query.trim().is_empty() || limit == 0 {
             return Ok(Vec::new());
         }
@@ -446,12 +451,14 @@ impl KnowledgeStore {
                         creator, basis, review_state, created_at, updated_at
                  FROM knowledge_items
                  WHERE review_state = 'confirmed' AND (title LIKE ? OR body_md LIKE ?)
+                   AND (? IS NULL OR book_id = ?)
                  ORDER BY updated_at DESC LIMIT ?",
             )?;
             let pattern = format!("%{}%", query.trim());
-            return collect_items(
-                statement.query_map(params![pattern, pattern, limit as i64], row_to_item)?,
-            );
+            return collect_items(statement.query_map(
+                params![pattern, pattern, book_id, book_id, limit as i64],
+                row_to_item,
+            )?);
         }
         let mut statement = connection.prepare(
             "SELECT i.id, i.kind, i.book_id, i.chapter_id, i.category, i.title, i.body_md,
@@ -459,10 +466,14 @@ impl KnowledgeStore {
              FROM knowledge_items_fts f
              JOIN knowledge_items i ON i.rowid = f.rowid
              WHERE knowledge_items_fts MATCH ? AND i.review_state = 'confirmed'
+               AND (? IS NULL OR i.book_id = ?)
              ORDER BY bm25(knowledge_items_fts)
              LIMIT ?",
         )?;
-        collect_items(statement.query_map(params![fts_query(query), limit as i64], row_to_item)?)
+        collect_items(statement.query_map(
+            params![fts_query(query), book_id, book_id, limit as i64],
+            row_to_item,
+        )?)
     }
 
     pub fn related(&self, item_id: &str, limit: usize) -> Result<Vec<KnowledgeItem>, StorageError> {
@@ -1092,12 +1103,29 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            store.search("durable knowledge", 10).unwrap(),
+            store.search("durable knowledge", 10, None).unwrap(),
             vec![summary]
         );
-        assert_eq!(store.search("可追溯", 10).unwrap(), vec![thought.clone()]);
         assert_eq!(
-            store.search("为什么知识需要保持可追溯？", 10).unwrap(),
+            store.search("可追溯", 10, None).unwrap(),
+            vec![thought.clone()]
+        );
+        assert!(
+            store
+                .search("可追溯", 10, Some("another-book"))
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            store
+                .search("知识", 10, Some("another-book"))
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            store
+                .search("为什么知识需要保持可追溯？", 10, None)
+                .unwrap(),
             vec![thought.clone()]
         );
         assert_eq!(store.related(&thought.id, 10).unwrap().len(), 1);

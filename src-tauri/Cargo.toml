@@ -21,6 +21,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11"
 tauri = { version = "2", features = ["protocol-asset"] }
+tokio = { version = "1", features = ["process", "io-util", "time", "sync"] }
 thiserror = "2"
 uuid = { version = "1.26", features = ["v7"] }
 zeroize = "1"

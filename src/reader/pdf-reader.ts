@@ -35,6 +35,8 @@ export type PdfReader = {
   openChapters: () => void;
   currentBook: () => BookRecord | undefined;
   currentPageContext: () => Promise<Pick<ReadingContext, "page" | "pageText" | "pageImage">>;
+  readPage: (bookId: string, page: number) => Promise<{ page: number; text: string; truncated: boolean }>;
+  searchBook: (bookId: string, query: string, startPage: number, signal?: AbortSignal) => Promise<{ matches: Array<{ page: number; text: string }>; nextPage: number | null }>;
   beginCapture: (onCaptured: (context: ReadingContext) => void) => boolean;
   flush: () => Promise<void>;
   destroy: () => void;
@@ -505,6 +507,35 @@ export function setupPdfReader(
     };
   };
 
+  const readPage = async (bookId: string, page: number, maxChars = 20_000): Promise<{ page: number; text: string; truncated: boolean }> => {
+    if (book?.id !== bookId) throw new Error("该请求的书籍已关闭或切换");
+    const total = documentProxy?.numPages ?? textChapters.length;
+    if (!Number.isInteger(page) || page < 1 || page > total) throw new Error("页码超出本书范围");
+    const source = documentProxy;
+    let text = textChapters[page - 1]?.body || "";
+    if (source) {
+      const content = await (await source.getPage(page)).getTextContent();
+      text = content.items.map((item) => "str" in item ? `${item.str}${item.hasEOL ? "\n" : " "}` : "").join("").trim();
+    }
+    if (book?.id !== bookId || documentProxy !== source) throw new Error("读取过程中书籍已切换");
+    return { page, text: text.slice(0, maxChars), truncated: text.length > maxChars };
+  };
+
+  const searchBook = async (bookId: string, query: string, startPage: number, signal?: AbortSignal): Promise<{ matches: Array<{ page: number; text: string }>; nextPage: number | null }> => {
+    if (book?.id !== bookId) throw new Error("该请求的书籍已关闭或切换");
+    const total = documentProxy?.numPages ?? textChapters.length;
+    if (!query.trim() || query.length > 200 || !Number.isInteger(startPage) || startPage < 1 || startPage > total) throw new Error("搜索条件无效");
+    const matches = [];
+    let page = startPage;
+    for (; page <= total && page < startPage + 100 && matches.length < 20; page++) {
+      signal?.throwIfAborted();
+      const result = await readPage(bookId, page, Infinity);
+      const offset = result.text.toLocaleLowerCase().indexOf(query.toLocaleLowerCase());
+      if (offset >= 0) matches.push({ page, text: result.text.slice(Math.max(0, offset - 100), offset + query.length + 200) });
+    }
+    return { matches, nextPage: page <= total ? page : null };
+  };
+
   const currentPageContext = async (): Promise<Pick<ReadingContext, "page" | "pageText" | "pageImage">> => {
     if (!book) return { page: currentPage };
     if (!documentProxy) {
@@ -674,6 +705,8 @@ export function setupPdfReader(
     },
     currentBook: () => book,
     currentPageContext,
+    readPage,
+    searchBook,
     beginCapture: (callback) => {
       if (!book || !documentProxy) return false;
       captureCallback = callback;

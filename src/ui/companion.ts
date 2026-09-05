@@ -22,6 +22,8 @@ import { getCompanionSystemPrompt, getLookupInstruction, getSummaryPrompt } from
 import { buildBookSummary } from "../summary";
 import { readingContextMaterial } from "../reader-state";
 import { knowledgeNodeLabel } from "./knowledge-canvas";
+import { readerToolHandler } from "./reader-tools";
+import type { PdfReader } from "../reader/pdf-reader";
 import { parseMessageSource, restoreConversation, type MessageSource } from "../conversation-state";
 import type { NoteEditorController } from "./note-editor";
 
@@ -86,6 +88,7 @@ export function setupCompanion(
   onKnowledgeSaved: () => void,
   openBookRecords: (bookId: string) => void,
   openKnowledgeItem: (itemId: string) => void,
+  readerTools?: Pick<PdfReader, "readPage" | "searchBook">,
 ): CompanionController {
   let context: ReadingContext | undefined;
   let bookContext: ReadingContext | undefined;
@@ -498,6 +501,7 @@ export function setupCompanion(
           answer += delta;
           renderMarkdown(elements.lookupBody, answer);
         },
+        { onReset: () => { if (lookupRequestId === requestId) { answer = ""; elements.lookupBody.replaceChildren(); } }, toolHandler: readerToolHandler(context, contextBookBound, readerTools, onKnowledgeSaved) },
       );
       if (lookupRequestId === requestId) {
         if (!answer.trim()) throw new Error("AI 未返回可显示内容");
@@ -643,6 +647,11 @@ export function setupCompanion(
           answer += delta;
           renderMarkdown(body, answer);
           elements.conversation.scrollTop = elements.conversation.scrollHeight;
+        },
+        {
+          onReset: () => { if (version === threadVersion && !interruptedRequests.has(requestId)) { answer = ""; body.replaceChildren(); } },
+          onActivity: (message) => { if (version === threadVersion && !interruptedRequests.has(requestId)) setActivity(message); },
+          toolHandler: readerToolHandler(activeContext, bound, readerTools, onKnowledgeSaved),
         },
       );
       checkRequest();

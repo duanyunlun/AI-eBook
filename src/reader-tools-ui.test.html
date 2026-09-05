@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>阅读工具回归检查</title>
+<div id="app"></div><output id="result" style="position:fixed;top:0;left:0;z-index:9999"></output>
+<script type="module">
+import { mountShell } from "./ui/shell.ts";
+import { setupPdfReader } from "./reader/pdf-reader.ts";
+import { readerToolHandler } from "./ui/reader-tools.ts";
+import "./styles.css";
+let saves = 0;
+window.__TAURI_INTERNALS__ = {
+  convertFileSrc: () => "http://127.0.0.1:5173/fixture.md",
+  invoke: async (command, args) => {
+    if (command === "save_reading_page") return;
+    if (command === "search_knowledge") return [
+      { id: "own", bookId: "book-one", bodyMd: "本书知识" },
+      { id: "other", bookId: "book-two", bodyMd: "其他作品知识" },
+    ];
+    if (command === "save_knowledge_item") {
+      saves++;
+      if (args.request.item.bookId !== "book-one" || args.request.item.creator !== "ai") throw new Error("知识绑定错误");
+      return { id: "saved" };
+    }
+    throw new Error(`意外调用：${command}`);
+  },
+};
+const originalFetch = window.fetch.bind(window);
+window.fetch = (url, options) => String(url).endsWith("fixture.md")
+  ? Promise.resolve(new Response("# 第一章\n\n" + "正文".repeat(12000) + "末尾关键词\n\n# 第二章\n\n检索目标\n"))
+  : originalFetch(url, options);
+const elements = mountShell(document.querySelector("#app"));
+const reader = setupPdfReader(elements, () => {}, () => {});
+const controller = new AbortController();
+const context = { bookId: "book-one", bookTitle: "测试书", bookFormat: "md", page: 1, totalPages: 2 };
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
+const rejected = async (action) => { let failed = false; try { await action(); } catch { failed = true; } assert(failed, "预期拒绝但执行成功"); };
+try {
+  await reader.open({ id: "book-one", title: "测试书", storedPath: "fixture.md", format: "md", lastPage: 1 });
+  const handler = readerToolHandler(context, true, reader, () => {});
+  const page = await handler("read_page", { page: 1 }, controller.signal);
+  assert(page.truncated && page.text.length === 20000, "读取长度限制失效");
+  const found = await handler("search_book", { query: "末尾关键词" }, controller.signal);
+  assert(found.matches.length === 1, "长章节后半部分无法搜索");
+  const knowledge = await handler("search_knowledge", { query: "知识" }, controller.signal);
+  assert(knowledge.length === 1 && knowledge[0].id === "own", "泄露其他书籍知识");
+  await rejected(() => handler("read_page", { page: 999 }, controller.signal));
+  await rejected(() => handler("bash", { command: "anything" }, controller.signal));
+  const external = readerToolHandler(context, false, reader, () => {});
+  await rejected(() => external("read_page", { page: 1 }, controller.signal));
+  const declined = handler("save_note", { title: "测试知识", body: "待确认正文" }, controller.signal);
+  document.querySelector(".reader-tool-confirm button").click();
+  assert(!(await declined).saved && saves === 0, "取消仍然写入");
+  const approved = handler("save_note", { title: "测试知识", body: "确认正文" }, controller.signal);
+  document.querySelector(".reader-tool-confirm .primary-command").click();
+  assert((await approved).saved && saves === 1, "确认保存失败");
+  const interrupted = handler("save_note", { title: "取消中的知识", body: "不应保存" }, controller.signal);
+  controller.abort();
+  assert(!(await interrupted).saved && saves === 1 && !document.querySelector(".reader-tool-confirm"), "中断没有关闭保存确认");
+  await reader.open({ id: "book-two", title: "另一本书", storedPath: "fixture.md", format: "md", lastPage: 1 });
+  await rejected(() => handler("read_page", { page: 1 }, new AbortController().signal));
+  document.querySelector("#result").textContent = "PASS：完整章节搜索、读取限制、跨书隔离、未知工具拒绝、确认保存、取消、中断、切书";
+} catch (error) { document.querySelector("#result").textContent = `FAIL：${error.message}`; }
+finally { await reader.flush(); }
+</script>
+</html>

@@ -466,8 +466,11 @@ pub fn list_knowledge_books(
 pub fn search_knowledge(
     store: State<'_, KnowledgeStore>,
     query: String,
+    book_id: Option<String>,
 ) -> Result<Vec<KnowledgeItem>, String> {
-    store.search(&query, 20).map_err(|error| error.to_string())
+    store
+        .search(&query, 20, book_id.as_deref())
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

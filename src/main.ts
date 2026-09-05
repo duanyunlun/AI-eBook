@@ -65,6 +65,7 @@ companion = setupCompanion(
   () => void knowledge.refresh(),
   knowledge.openForBook,
   knowledge.openItem,
+  reader,
 );
 
 const openBook = async (book: BookRecord): Promise<void> => {

@@ -1,5 +1,6 @@
 import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
-import { getAiSettings } from "./ui/ai-settings";
+import { getAiSettings, getAiRuntime } from "./ui/ai-settings";
+import type { ReaderToolHandler } from "./ui/reader-tools";
 
 export type BookRecord = {
   id: string;
@@ -96,7 +97,7 @@ export type AiMessage = {
   content: Array<{ type: "text"; text: string } | { type: "image"; media_type: string; data: string }>;
 };
 
-type AiOutput = { type: "delta"; data: string } | { type: "finished" };
+type AiOutput = { type: "delta"; data: string } | { type: "finished" | "reset" } | { type: "tool"; data: { callId: string; name: string; arguments: Record<string, unknown> } };
 
 export const bookUrl = (book: BookRecord): string => convertFileSrc(book.storedPath);
 export const importBook = (): Promise<BookRecord | null> => invoke("import_book");
@@ -123,8 +124,8 @@ export const listKnowledge = (bookId?: string): Promise<KnowledgeItem[]> =>
   invoke("list_knowledge", { bookId });
 export const listKnowledgeBooks = (): Promise<Array<{ id: string; title: string }>> =>
   invoke("list_knowledge_books");
-export const searchKnowledge = (query: string): Promise<KnowledgeItem[]> =>
-  invoke("search_knowledge", { query });
+export const searchKnowledge = (query: string, bookId?: string): Promise<KnowledgeItem[]> =>
+  invoke("search_knowledge", { query, bookId });
 export const getKnowledgeGraph = (): Promise<KnowledgeGraph> => invoke("get_knowledge_graph");
 export const appendThreadMessage = (request: {
   threadId?: string;
@@ -152,12 +153,30 @@ export async function streamAi(
   requestId: string,
   messages: AiMessage[],
   onDelta: (text: string) => void,
+  options?: { onReset?: () => void; onActivity?: (message: string) => void; toolHandler?: ReaderToolHandler },
 ): Promise<void> {
+  const controller = new AbortController();
   const onEvent = new Channel<AiOutput>((event) => {
     if (event.type === "delta") onDelta(event.data);
+    if (event.type === "reset") options?.onReset?.();
+    if (event.type === "tool") {
+      const labels: Record<string, string> = { reading_context: "读取阅读上下文", read_page: "读取书籍页面", search_book: "检索本书", search_knowledge: "检索本书知识", save_note: "等待保存确认" };
+      options?.onActivity?.(labels[event.data.name] || "执行阅读工具");
+      const reply = async (): Promise<void> => {
+        let result;
+        try {
+          if (!options?.toolHandler) throw new Error("本次请求未开放阅读工具");
+          result = { value: await options.toolHandler(event.data.name, event.data.arguments, controller.signal) };
+        } catch { result = { error: "工具执行失败或用户取消" }; }
+        if (!controller.signal.aborted) await invoke("resolve_reader_tool", { requestId, callId: event.data.callId, reply: result });
+      };
+      void reply().catch(() => undefined);
+    }
   });
-  await invoke("generate_ai", {
-    request: { requestId, provider: getAiSettings(), messages },
-    onEvent,
-  });
+  try {
+    await invoke("generate_ai", {
+      request: { requestId, provider: getAiSettings(), messages, runtime: getAiRuntime() },
+      onEvent,
+    });
+  } finally { controller.abort(); }
 }

@@ -78,6 +78,7 @@ export function getAiSettings(): ProviderSettings {
 export const getCompanionSystemPrompt = (): string => getStoredSettings().systemPrompt;
 export const getSummaryPrompt = (): string => localStorage.getItem("summary-prompt")?.trim() || defaultSummaryPrompt;
 export const getTranslationLanguage = (): string => localStorage.getItem(translationLanguageKey) || "简体中文";
+export const getAiRuntime = (): "direct" | "dsh" => localStorage.getItem("ai-runtime") === "dsh" ? "dsh" : "direct";
 
 export function setupAiSettings(
   openButton: HTMLButtonElement,
@@ -127,6 +128,25 @@ export function setupAiSettings(
   const dshRegistry = get<HTMLInputElement>("#dsh-registry");
   const dshUpdate = get<HTMLButtonElement>("#dsh-update");
   const dshProgress = get<HTMLProgressElement>("#dsh-progress");
+  const runtime = get<HTMLSelectElement>("#ai-runtime");
+  runtime.value = getAiRuntime();
+  runtime.addEventListener("change", () => localStorage.setItem("ai-runtime", runtime.value));
+  const pluginStatus = get<HTMLOutputElement>("#reader-plugin-status");
+  type PluginStatus = { pluginVersion: string; dshVersion?: string; compatible: boolean };
+  const showPlugin = (value: PluginStatus): void => {
+    pluginStatus.textContent = `阅读器插件 ${value.pluginVersion} · ${!value.dshVersion ? "等待安装 DSH" : value.compatible ? "版本兼容" : "DSH 版本不兼容"}`;
+  };
+  const refreshPlugin = (): void => {
+    void invoke<PluginStatus>("get_reader_runtime_status").then(showPlugin).catch((error) => { pluginStatus.textContent = String(error); });
+  };
+  for (const [id, command] of [["reader-plugin-import", "import_reader_plugin"], ["reader-plugin-restore", "restore_reader_plugin"]]) {
+    const button = get<HTMLButtonElement>(`#${id}`);
+    button.addEventListener("click", () => {
+      button.disabled = true;
+      void invoke<PluginStatus | null>(command).then((value) => { if (value) showPlugin(value); })
+        .catch((error) => { pluginStatus.textContent = String(error); }).finally(() => { button.disabled = false; });
+    });
+  }
   let dshAction: "check" | "update" = "check";
   let dshTimer: number | undefined;
 
@@ -174,6 +194,7 @@ export function setupAiSettings(
     dshUpdate.disabled = false;
   };
   const refreshDsh = (): void => {
+    refreshPlugin();
     void invoke<DshStatus>("get_dsh_status")
       .then(showDshStatus)
       .catch((error) => {
@@ -247,7 +268,7 @@ export function setupAiSettings(
       : invoke<DshStatus>("update_dsh", { registry });
     void action
       .then((result) => {
-        if (!("latestVersion" in result)) return showDshStatus(result);
+        if (!("latestVersion" in result)) { refreshPlugin(); return showDshStatus(result); }
         const current = result.current.installed
           ? `${result.current.source === "managed" ? "应用托管" : "系统安装"} ${result.current.version}`
           : "未安装";
