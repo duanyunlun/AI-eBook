@@ -11,6 +11,8 @@ import "./styles.css";
 
 const result = document.querySelector("#result");
 const elements = mountShell(document.querySelector("#app"));
+const preview = new URLSearchParams(location.search);
+document.documentElement.dataset.theme = preview.get("theme") === "dark" ? "dark" : "light";
 const messages = [{ id: "question", role: "user", body: "这句话是什么意思？", createdAt: 1, state: "complete", contextJson: JSON.stringify({ page: 20, content: [{ type: "text", text: "昨日原文" }] }) }];
 const threads = new Map([["old", { id: "old", title: "旧版关闭的对话", messages }]]);
 const selected = new Map([["book", "old"]]);
@@ -170,8 +172,16 @@ try {
   await until(settled);
   check(!elements.conversation.textContent, "重新开书复活了已删除对话");
   report.push("通过：删除当前对话清理上下文，重新开书不复活");
-  elements.clearConversation.click();
-  await until(settled);
+  elements.threadHistory.click();
+  await until(() => !elements.threadList.hidden);
+  const historyStyle = getComputedStyle(elements.threadList);
+  check(historyStyle.borderTopWidth === "1px" && historyStyle.backgroundColor !== "rgba(0, 0, 0, 0)" && parseFloat(historyStyle.paddingTop) >= 10, "历史空状态缺少独立背景、边框或留白");
+  report.push("通过：历史空状态具有独立底色、边框与留白");
+  elements.threadHistory.click();
+  if (!preview.has("empty")) {
+    elements.clearConversation.click();
+    await until(settled);
+  }
   elements.threadHistory.click();
   await until(() => !elements.threadList.hidden);
   elements.annotationDrawer.setAttribute("aria-hidden", "false");
