@@ -27,6 +27,7 @@ struct PublicProviderConfig {
     protocol: ai::AiProtocol,
     base_url: String,
     model: String,
+    max_output_tokens: u32,
 }
 
 #[derive(Deserialize)]
@@ -141,6 +142,7 @@ async fn generate_ai(
         return Err("请先在设置中配置 AI 模型".into());
     }
     let api_key = read_ai_api_key(&request.provider)?;
+    let max_output_tokens = request.provider.max_output_tokens.clamp(1, 131_072);
     let mut config = ProviderConfig {
         protocol: request.provider.protocol,
         base_url: request.provider.base_url,
@@ -149,7 +151,7 @@ async fn generate_ai(
     };
     let generation = GenerateRequest {
         messages: request.messages,
-        max_output_tokens: 4096,
+        max_output_tokens,
         temperature: Some(0.2),
     };
     let client = AiClient::new().map_err(|error| error.to_string())?;

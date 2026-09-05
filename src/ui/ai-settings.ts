@@ -10,6 +10,7 @@ export type ProviderSettings = {
   protocol: Protocol;
   baseUrl: string;
   model: string;
+  maxOutputTokens: number;
 };
 
 type AiSettings = ProviderSettings & { systemPrompt: string };
@@ -20,6 +21,7 @@ const storageKey = "ai-provider-settings";
 const translationLanguageKey = "translation-language";
 const dshRegistryKey = "dsh-registry";
 const defaultDshRegistry = "https://registry.npmmirror.com/";
+const defaultMaxOutputTokens = 16384;
 const defaultSystemPrompt =
   "你是服务于当前阅读作品的中文 AI 伴读助手。优先结合当前作品、阅读位置、用户选区和个人知识库回答；没有足够正文时明确说明信息边界，不要求用户重复提供已经给出的作品信息。";
 const defaultBaseUrls: Record<Protocol, string> = {
@@ -37,6 +39,11 @@ function getStoredSettings(): AiSettings {
         protocol: stored.protocol,
         baseUrl: stored.baseUrl,
         model: stored.model,
+        maxOutputTokens: Number.isInteger(stored.maxOutputTokens)
+          && Number(stored.maxOutputTokens) > 0
+          && Number(stored.maxOutputTokens) <= 131072
+          ? Number(stored.maxOutputTokens)
+          : defaultMaxOutputTokens,
         systemPrompt: stored.systemPrompt?.trim() || defaultSystemPrompt,
       };
     }
@@ -47,6 +54,7 @@ function getStoredSettings(): AiSettings {
     protocol: "open_ai_chat_completions",
     baseUrl: defaultBaseUrls.open_ai_chat_completions,
     model: "",
+    maxOutputTokens: defaultMaxOutputTokens,
     systemPrompt: defaultSystemPrompt,
   };
 }
@@ -76,6 +84,7 @@ export function setupAiSettings(
   const protocol = get<HTMLSelectElement>("#ai-protocol");
   const baseUrl = get<HTMLInputElement>("#ai-base-url");
   const model = get<HTMLInputElement>("#ai-model");
+  const maxOutputTokens = get<HTMLInputElement>("#ai-max-output-tokens");
   const translationLanguage = get<HTMLSelectElement>("#translation-language");
   const systemPrompt = get<HTMLTextAreaElement>("#ai-system-prompt");
   const apiKey = get<HTMLInputElement>("#ai-api-key");
@@ -97,6 +106,7 @@ export function setupAiSettings(
     protocol: protocol.value as Protocol,
     baseUrl: baseUrl.value.trim(),
     model: model.value.trim(),
+    maxOutputTokens: Number(maxOutputTokens.value),
     systemPrompt: systemPrompt.value.trim() || defaultSystemPrompt,
   });
   const providerValues = (): ProviderSettings => {
@@ -143,6 +153,7 @@ export function setupAiSettings(
   protocol.value = initial.protocol;
   baseUrl.value = initial.baseUrl;
   model.value = initial.model;
+  maxOutputTokens.value = String(initial.maxOutputTokens);
   translationLanguage.value = getTranslationLanguage();
   systemPrompt.value = initial.systemPrompt;
   dshRegistry.value = localStorage.getItem(dshRegistryKey) || defaultDshRegistry;

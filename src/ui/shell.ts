@@ -278,6 +278,10 @@ export function mountShell(app: HTMLElement): ShellElements {
                 <input id="ai-model" type="text" required spellcheck="false" />
               </label>
               <label>
+                <span>最大输出 Token</span>
+                <input id="ai-max-output-tokens" type="number" min="1" max="131072" step="1" required />
+              </label>
+              <label>
                 <span>翻译语言</span>
                 <select id="translation-language">
                   <option value="简体中文">简体中文</option>
