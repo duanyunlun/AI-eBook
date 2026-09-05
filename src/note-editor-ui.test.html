@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>记录编辑器 DOM 回归检查</title>
+<div id="app"></div>
+<output id="result" style="position:fixed;top:20px;left:20px;z-index:9999;max-width:45%;white-space:pre-wrap">检查中…</output>
+<script type="module">
+import { mountShell } from "./ui/shell.ts";
+import { setupNoteEditor } from "./ui/note-editor.ts";
+import "./styles.css";
+
+const result = document.querySelector("#result");
+const elements = mountShell(document.querySelector("#app"));
+document.documentElement.dataset.theme = new URLSearchParams(location.search).get("theme") === "dark" ? "dark" : "light";
+elements.annotationDrawer.setAttribute("aria-hidden", "false");
+elements.annotationDrawer.removeAttribute("inert");
+elements.thoughtPanel.hidden = true;
+elements.recordPanel.hidden = false;
+elements.thoughtMode.setAttribute("aria-selected", "false");
+elements.recordMode.setAttribute("aria-selected", "true");
+elements.clearConversation.hidden = true;
+const host = elements.noteBody;
+const menu = elements.noteCommandMenu;
+const controller = setupNoteEditor(host, menu);
+const textbox = host.querySelector('[contenteditable="true"]');
+const report = [];
+const check = (condition, message) => { if (!condition) throw new Error(message); };
+const tick = () => new Promise((resolve) => setTimeout(resolve, 30));
+const key = (key, options = {}) => {
+  const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...options });
+  textbox.dispatchEvent(event);
+  return event;
+};
+const load = async (markdown) => {
+  controller.setMarkdown(markdown);
+  controller.focus();
+  await tick();
+  const range = document.createRange();
+  range.selectNodeContents(textbox);
+  range.collapse(false);
+  getSelection().removeAllRanges();
+  getSelection().addRange(range);
+  document.dispatchEvent(new Event("selectionchange"));
+  await tick();
+};
+const type = async (text) => {
+  check(document.execCommand("insertText", false, text), "浏览器未执行文本输入");
+  await tick();
+};
+
+try {
+  check(textbox?.getAttribute("role") === "textbox", "缺少可编辑 textbox");
+  check(textbox.getAttribute("aria-label") === "记录正文" && textbox.getAttribute("aria-multiline") === "true", "正文无障碍属性错误");
+  check(textbox.getAttribute("aria-controls") === menu.id && host.dataset.noteDirty === "false", "菜单关联或初始 dirty 状态错误");
+  report.push("通过：controller、无障碍属性与初始空状态");
+
+  await load("# 一级\n\n## 二级\n\n### 三级\n\n正文\n\n- 项目\n\n1. 编号\n\n- [ ] 未完成\n- [x] 已完成\n\n> 引用\n\n---");
+  for (const selector of ["h1", "h2", "h3", "p", "ul", "ol", 'input[type="checkbox"]', "blockquote", "hr"]) {
+    check(textbox.querySelector(selector), `未渲染 ${selector}`);
+  }
+  const markdown = controller.getMarkdown();
+  await load(markdown);
+  check(controller.getMarkdown() === markdown && host.dataset.noteDirty === "true", "Markdown 往返或 dirty 状态错误");
+  check(getComputedStyle(textbox.querySelector('input[type="checkbox"]').closest("li")).display === "flex", "待办勾选框与正文没有横向对齐");
+  textbox.querySelector('input[type="checkbox"]').click();
+  check(controller.getMarkdown().includes("[x] 未完成"), "勾选状态没有序列化");
+  report.push("通过：全部结构、Markdown 往返、可交互任务 checkbox");
+
+  for (const [query, selector] of [["h1", "h1"], ["h2", "h2"], ["h3", "h3"], ["text", "p"], ["bullet", "ul"], ["number", "ol"], ["todo", 'input[type="checkbox"]'], ["quote", "blockquote"], ["divider", "hr"]]) {
+    await load("");
+    await type(`/${query}`);
+    check(!menu.hidden, `/${query} 未显示菜单`);
+    const before = textbox.childElementCount;
+    const event = key("Enter");
+    check(event.defaultPrevented && textbox.querySelector(selector), `/${query} 未转换为结构`);
+    check(!textbox.textContent.includes(`/${query}`), `/${query} 没有删除 slash 文本`);
+    if (query !== "divider") check(textbox.childElementCount === before, "命令 Enter 先插入了段落");
+  }
+  report.push("通过：全部中文命令对应结构、Enter 拦截及 slash 清除");
+
+  await load("");
+  await type("/");
+  check(menu.children.length === 9 && menu.textContent.includes("待办事项"), "中文选项不完整");
+  key("ArrowUp");
+  check(menu.lastElementChild.getAttribute("aria-selected") === "true", "向上循环选择失败");
+  key("ArrowDown");
+  check(menu.firstElementChild.getAttribute("aria-selected") === "true", "向下循环选择失败");
+  key("ArrowDown");
+  key("Tab");
+  check(textbox.querySelector("h1") && menu.hidden, "Tab 没有选择标题");
+  await load("");
+  await type("/标题");
+  check(menu.children.length === 3, "中文过滤失败");
+  key("Escape");
+  check(menu.hidden && textbox.textContent === "/标题", "Escape 修改了正文");
+  report.push("通过：中文过滤、上下循环、Tab 选择与 Escape 关闭");
+
+  await load("");
+  await type("/h2");
+  const composingMarkdown = controller.getMarkdown();
+  key("Enter", { isComposing: true });
+  key("Tab", { isComposing: true });
+  check(controller.getMarkdown() === composingMarkdown && !textbox.querySelector("h2"), "输入法确认触发命令");
+  textbox.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+  menu.firstElementChild.click();
+  key("ArrowDown");
+  check(controller.getMarkdown() === composingMarkdown, "组合输入期间菜单点击触发命令");
+  textbox.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true }));
+  await tick();
+  const option = menu.firstElementChild;
+  const pointer = new PointerEvent("pointerdown", { bubbles: true, cancelable: true });
+  option.dispatchEvent(pointer);
+  check(pointer.defaultPrevented && document.activeElement === textbox, "菜单 pointerdown 丢失编辑焦点");
+  option.click();
+  check(textbox.querySelector("h2") && !textbox.textContent.includes("/h2"), "菜单点击没有保留选区并转换结构");
+  report.push("通过：isComposing、组合输入保护与 pointerdown 光标保持");
+
+  await load("正文");
+  const paragraph = textbox.querySelector("p");
+  await type("追加");
+  check(textbox.querySelector("p") === paragraph && textbox.textContent === "正文追加", "输入重绘正文或光标跳动");
+  const modifier = /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? { metaKey: true } : { ctrlKey: true };
+  key("z", modifier);
+  await tick();
+  check(textbox.textContent === "正文", "原生快捷键撤销失败");
+  key("z", { ...modifier, shiftKey: true });
+  await tick();
+  check(textbox.textContent === "正文追加", "原生快捷键重做失败");
+  report.push("通过：正文节点稳定、编辑位置与撤销重做");
+
+  await load("");
+  const clipboard = new DataTransfer();
+  clipboard.setData("text/html", '<h2>粘贴标题</h2><p onclick="alert(1)">正文<a href="javascript:alert(1)">危险链接</a><a href="https://example.com">安全链接</a></p><script>alert(1)<\/script><iframe src="about:blank"></iframe><img src="x" onerror="alert(1)"><blockquote>引用</blockquote><ul><li>项目</li></ul><hr>');
+  textbox.dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+  await tick();
+  check(textbox.querySelector("h2") && textbox.querySelector("blockquote") && textbox.querySelector("ul") && textbox.querySelector("hr"), "HTML 粘贴丢失支持结构");
+  check(!textbox.querySelector("script, iframe, img, [onclick], [onerror], a[href^='javascript:']"), "HTML 粘贴保留危险内容");
+  check(!controller.getMarkdown().includes("alert(1)") && textbox.querySelector('a[href="https://example.com"]'), "粘贴安全链接处理错误");
+  report.push("通过：HTML 粘贴结构白名单与脚本、危险链接清理");
+
+  await load("");
+  const plainClipboard = new DataTransfer();
+  plainClipboard.setData("text/plain", "## Markdown 标题\n\n**重点**\n\n- [ ] 待办\n\n```js\nconst value = 1;\n```\n\n普通第一行\n普通第二行");
+  textbox.dispatchEvent(new ClipboardEvent("paste", { clipboardData: plainClipboard, bubbles: true, cancelable: true }));
+  await tick();
+  check(textbox.querySelector("h2") && textbox.querySelector("strong") && textbox.querySelector('input[type="checkbox"]') && textbox.querySelector("pre code"), "纯文本 Markdown 粘贴没有渲染结构");
+  check(textbox.querySelector("br") && textbox.textContent.includes("普通第二行") && controller.getMarkdown().includes("const value = 1;"), "粘贴丢失普通换行或代码内容");
+  report.push("通过：纯文本 Markdown 粘贴即时排版，保留代码与普通换行");
+
+  controller.clear();
+  check(controller.getMarkdown() === "" && host.dataset.noteDirty === "false" && menu.hidden, "clear 未同步空状态");
+  controller.focus();
+  await tick();
+  check(document.activeElement === textbox, "controller.focus 未聚焦正文");
+  controller.setMarkdown("# 阅读中的思考\n\n这里直接显示**加粗的重点**，不必切换预览。\n\n## 本章要点\n\n- 保留自己的理解\n- 回到原文验证\n\n- [x] 阅读本章\n- [ ] 整理问题\n\n> 区分原书观点与自己的推断。\n\n---\n\n输入 / 继续添加内容。");
+  result.textContent = report.join("\n") + "\n全部通过";
+  result.dataset.state = "passed";
+} catch (error) {
+  result.textContent = report.join("\n") + `\n失败：${error.stack}`;
+  result.dataset.state = "failed";
+}
+</script>
+</html>

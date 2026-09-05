@@ -572,8 +572,15 @@ button:disabled {
 }
 
 #thread-title {
+  min-width: 0;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#thread-history {
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 
@@ -969,7 +976,7 @@ button:disabled {
 
 .question-form textarea,
 .record-panel textarea,
-.record-panel input {
+.record-panel > input {
   width: 100%;
   border: 1px solid var(--border-strong);
   border-radius: 5px;
@@ -1080,11 +1087,39 @@ button:disabled {
   flex: 1;
 }
 
-.record-panel .note-editor textarea {
+#note-body {
   height: 100%;
-  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: calc(13px * var(--ui-font-scale));
   line-height: 1.65;
-  resize: none;
+}
+
+#note-body:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+#note-body .tiptap { min-height: 100%; padding: 12px; outline: none; }
+#note-body .tiptap > :first-child { margin-top: 0; }
+#note-body .tiptap > :last-child { margin-bottom: 0; }
+#note-body .tiptap p { min-height: 1.65em; }
+#note-body .tiptap ul, #note-body .tiptap ol { padding-left: 1.6em; }
+#note-body .tiptap li > p { margin-bottom: 0.25em; }
+#note-body .tiptap ul[data-type="taskList"] { padding-left: 0; list-style: none; }
+#note-body .tiptap ul[data-type="taskList"] > li { display: flex; align-items: flex-start; gap: 8px; }
+#note-body .tiptap ul[data-type="taskList"] > li > div { min-width: 0; flex: 1; }
+#note-body .tiptap ul[data-type="taskList"] > li > label { display: flex; min-height: 1.65em; align-items: center; }
+#note-body .tiptap input[type="checkbox"] { width: auto; height: auto; margin: 0; accent-color: var(--accent); }
+#note-body[data-note-dirty="false"] .tiptap > p:first-child::before {
+  content: "记录此刻的理解，输入 / 选择内容类型";
+  float: left;
+  height: 0;
+  color: var(--subtle);
+  pointer-events: none;
 }
 
 .note-command-menu {

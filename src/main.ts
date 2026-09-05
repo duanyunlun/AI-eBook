@@ -18,7 +18,7 @@ const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("缺少应用挂载节点");
 
 const elements = mountShell(app);
-setupNoteEditor(elements.noteBody, elements.noteCommandMenu);
+const noteEditor = setupNoteEditor(elements.noteBody, elements.noteCommandMenu);
 const showError = (error: unknown): void => {
   elements.error.textContent = error instanceof Error ? error.message : String(error);
   elements.error.hidden = false;
@@ -58,6 +58,7 @@ const openCompanion = (): void => {
 };
 companion = setupCompanion(
   elements,
+  noteEditor,
   openCompanion,
   reader.beginCapture,
   reader.currentPageContext,

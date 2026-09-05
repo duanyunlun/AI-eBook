@@ -37,7 +37,7 @@ export type ShellElements = {
   saveAnswer: HTMLButtonElement;
   relatedKnowledge: HTMLElement;
   noteTitle: HTMLInputElement;
-  noteBody: HTMLTextAreaElement;
+  noteBody: HTMLDivElement;
   noteCommandMenu: HTMLElement;
   currentBookRecords: HTMLButtonElement;
   saveNote: HTMLButtonElement;
@@ -218,7 +218,7 @@ export function mountShell(app: HTMLElement): ShellElements {
             <section class="record-panel" id="record-panel" hidden>
               <input id="note-title" type="text" placeholder="标题" aria-label="记录标题" />
               <div class="note-editor">
-                <textarea id="note-body" rows="12" placeholder="记录此刻的理解，输入 / 选择内容类型" aria-label="记录正文" aria-controls="note-command-menu" aria-haspopup="listbox" aria-expanded="false"></textarea>
+                <div id="note-body" class="markdown-body"></div>
                 <div class="note-command-menu" id="note-command-menu" role="listbox" aria-label="内容类型" hidden></div>
               </div>
               <div class="record-actions">

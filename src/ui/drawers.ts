@@ -52,6 +52,7 @@ export function setupDrawers(elements: DrawerElements): DrawerController {
   const annotationLocked = (): boolean =>
     elements.annotationDrawer.getAttribute("aria-busy") === "true" ||
     elements.annotationDrawer.contains(document.activeElement) ||
+    Boolean(elements.annotationDrawer.querySelector('[data-note-dirty="true"]')) ||
     [...elements.annotationDrawer.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea")].some(
       (input) => input.value.trim(),
     );

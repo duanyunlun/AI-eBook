@@ -7,6 +7,7 @@
 <script type="module">
 import { mountShell } from "./ui/shell.ts";
 import { setupCompanion } from "./ui/companion.ts";
+import { setupNoteEditor } from "./ui/note-editor.ts";
 import "./styles.css";
 
 const result = document.querySelector("#result");
@@ -24,10 +25,20 @@ let pendingGeneration;
 let generateCount = 0;
 let lastRequest;
 let holdGeneration = false;
+let failNoteSave = false;
+let holdNoteSave = false;
+let finishNoteSave;
+const savedNotes = [];
 window.__TAURI_INTERNALS__ = {
   transformCallback: () => 1,
   unregisterCallback: () => {},
   invoke: async (command, args) => {
+    if (command === "save_knowledge_item") {
+      if (failNoteSave) throw new Error("模拟笔记保存失败");
+      savedNotes.push(structuredClone(args.request));
+      if (holdNoteSave) await new Promise((resolve) => { finishNoteSave = resolve; });
+      return {};
+    }
     if (command === "load_latest_thread") return structuredClone(threads.get(selected.get(args.bookId)) ?? null);
     if (command === "list_threads_for_book") return [...threads.values()].filter((thread) => owners.get(thread.id) === args.bookId).map((thread) => ({ ...thread, page: 20, updatedAt: 1788569000000 }));
     if (command === "create_thread_for_book") {
@@ -71,7 +82,8 @@ window.__TAURI_INTERNALS__ = {
     throw new Error(`未模拟接口 ${command}`);
   },
 };
-const companion = setupCompanion(elements, () => {}, () => false, async () => ({ page: 80, pageText: "今日原文" }), () => {}, () => {}, () => {});
+const noteEditor = setupNoteEditor(elements.noteBody, elements.noteCommandMenu);
+const companion = setupCompanion(elements, noteEditor, () => {}, () => false, async () => ({ page: 80, pageText: "今日原文" }), () => {}, () => {}, () => {});
 const book = { bookId: "book", bookTitle: "测试书籍", bookFormat: "pdf", page: 80, totalPages: 100 };
 const check = (condition, message) => { if (!condition) throw new Error(message); };
 const until = async (condition) => {
@@ -185,6 +197,41 @@ try {
   elements.threadHistory.click();
   await until(() => !elements.threadList.hidden);
   elements.annotationDrawer.setAttribute("aria-hidden", "false");
+  elements.threadTitle.textContent = "这是用于验证历史按钮不被长标题挤压的测试对话".repeat(5);
+  const toolbar = elements.threadTitle.parentElement;
+  toolbar.style.width = "180px";
+  const historyText = document.createRange();
+  historyText.selectNodeContents(elements.threadHistory);
+  for (const scale of [1, 1.5, 2]) {
+    toolbar.style.setProperty("--ui-font-scale", String(scale));
+    check(historyText.getClientRects().length === 1 && toolbar.scrollWidth <= toolbar.clientWidth, "长标题挤压历史按钮换行或溢出");
+    check(elements.threadTitle.scrollWidth > elements.threadTitle.clientWidth && getComputedStyle(elements.threadTitle).textOverflow === "ellipsis", "长标题没有省略显示");
+  }
+  toolbar.style.removeProperty("width");
+  toolbar.style.removeProperty("--ui-font-scale");
+  report.push("通过：窄栏及不同字号下长标题省略，历史按钮始终单行");
+  companion.openRecord();
+  noteEditor.setMarkdown("## 排版标题\n\n**加粗内容**\n\n- [ ] 待办事项\n\n> 引用原文");
+  check(elements.noteBody.querySelector("h2")?.textContent === "排版标题" && elements.noteBody.querySelector("strong")?.textContent === "加粗内容", "记录正文没有直接渲染排版");
+  const originalNote = noteEditor.getMarkdown();
+  failNoteSave = true;
+  elements.saveNote.click();
+  await until(() => !elements.saveNote.disabled);
+  check(noteEditor.getMarkdown() === originalNote, "保存失败清空了编辑内容");
+  failNoteSave = false;
+  holdNoteSave = true;
+  elements.saveNote.click();
+  await until(() => Boolean(finishNoteSave));
+  noteEditor.setMarkdown("## 保存期间继续编辑\n\n新内容不能丢失");
+  finishNoteSave();
+  await until(() => !elements.saveNote.disabled);
+  check(savedNotes.at(-1).item.bodyMd === originalNote && noteEditor.getMarkdown().includes("新内容不能丢失"), "保存回调清空了后续编辑");
+  holdNoteSave = false;
+  elements.saveNote.click();
+  await until(() => !elements.saveNote.disabled);
+  check(!noteEditor.getMarkdown().trim() && elements.noteBody.dataset.noteDirty === "false", "保存成功没有重置编辑器");
+  elements.thoughtMode.click();
+  report.push("通过：记录直接排版、保存为 Markdown、失败及保存期间编辑不丢失");
   result.textContent = report.join("\n") + "\n全部通过（模拟接口，无真实 AI 调用）";
   result.dataset.state = "passed";
 } catch (error) {

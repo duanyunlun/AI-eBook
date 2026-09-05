@@ -1,4 +1,18 @@
+import { Editor } from "@tiptap/core";
+import StarterKit from "@tiptap/starter-kit";
+import { Markdown } from "@tiptap/markdown";
+import { TaskItem, TaskList } from "@tiptap/extension-list";
+import { EditorState } from "@tiptap/pm/state";
+import DOMPurify from "dompurify";
+
 type SlashMatch = { start: number; query: string };
+
+export type NoteEditorController = {
+  getMarkdown(): string;
+  setMarkdown(markdown: string): void;
+  clear(): void;
+  focus(): void;
+};
 
 type NoteCommand = {
   id: string;
@@ -33,25 +47,50 @@ export function applyNoteCommand(value: string, cursor: number, markdown: string
   return { value: next, cursor: match.start + markdown.length };
 }
 
-export function setupNoteEditor(input: HTMLTextAreaElement, menu: HTMLElement): void {
+export function setupNoteEditor(host: HTMLElement, menu: HTMLElement): NoteEditorController {
   let visible: NoteCommand[] = [];
   let activeIndex = 0;
+  let composing = false;
+  menu.id ||= `note-command-menu-${crypto.randomUUID()}`;
+  menu.setAttribute("role", "listbox");
 
   const close = (): void => {
     menu.hidden = true;
+    const input = editor.view.dom;
     input.setAttribute("aria-expanded", "false");
     input.removeAttribute("aria-activedescendant");
   };
+  const slash = (): (SlashMatch & { end: number }) | undefined => {
+    const { empty, $from } = editor.state.selection;
+    if (!empty || !$from.parent.isTextblock) return;
+    const text = $from.parent.textBetween(0, $from.parentOffset, "\n", "\ufffc");
+    const match = noteSlashMatch(text, text.length);
+    return match ? { start: $from.start() + match.start, end: $from.pos, query: match.query } : undefined;
+  };
   const choose = (command: NoteCommand): void => {
-    const result = applyNoteCommand(input.value, input.selectionStart, command.markdown);
-    input.value = result.value;
-    input.setSelectionRange(result.cursor, result.cursor);
+    if (composing || editor.view.composing) return;
+    const match = slash();
+    if (!match) return close();
+    const chain = editor.chain().focus(undefined, { scrollIntoView: false })
+      .deleteRange({ from: match.start, to: match.end }).clearNodes();
+    switch (command.id) {
+      case "h1": chain.setHeading({ level: 1 }); break;
+      case "h2": chain.setHeading({ level: 2 }); break;
+      case "h3": chain.setHeading({ level: 3 }); break;
+      case "bullet": chain.toggleBulletList(); break;
+      case "number": chain.toggleOrderedList(); break;
+      case "todo": chain.toggleTaskList(); break;
+      case "quote": chain.setBlockquote(); break;
+      case "divider": chain.setHorizontalRule(); break;
+      default: chain.setParagraph();
+    }
+    chain.run();
     close();
-    input.focus({ preventScroll: true });
-    input.dispatchEvent(new Event("input", { bubbles: true }));
   };
   const render = (): void => {
-    const match = noteSlashMatch(input.value, input.selectionStart);
+    if (!editor.view.hasFocus() || composing || editor.view.composing) return;
+    const input = editor.view.dom;
+    const match = slash();
     if (!match) return close();
     visible = commands.filter((command) => command.keywords.includes(match.query));
     if (!visible.length) return close();
@@ -59,7 +98,7 @@ export function setupNoteEditor(input: HTMLTextAreaElement, menu: HTMLElement): 
     menu.replaceChildren();
     visible.forEach((command, index) => {
       const button = document.createElement("button");
-      button.id = `note-command-${command.id}`;
+      button.id = `${menu.id}-${command.id}`;
       button.type = "button";
       button.role = "option";
       button.setAttribute("aria-selected", String(index === activeIndex));
@@ -70,32 +109,105 @@ export function setupNoteEditor(input: HTMLTextAreaElement, menu: HTMLElement): 
     });
     menu.hidden = false;
     input.setAttribute("aria-expanded", "true");
-    input.setAttribute("aria-activedescendant", `note-command-${visible[activeIndex].id}`);
+    input.setAttribute("aria-activedescendant", `${menu.id}-${visible[activeIndex].id}`);
     menu.children[activeIndex]?.scrollIntoView({ block: "nearest" });
   };
 
-  input.addEventListener("input", () => {
-    activeIndex = 0;
-    render();
-  });
-  input.addEventListener("click", render);
-  input.addEventListener("keydown", (event) => {
-    if (event.isComposing || menu.hidden) return;
-    if (event.key === "Escape") {
-      event.preventDefault();
-      close();
-      return;
-    }
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      activeIndex = (activeIndex + (event.key === "ArrowDown" ? 1 : visible.length - 1)) % visible.length;
+  const syncDirty = (): void => {
+    host.dataset.noteDirty = String(!editor.isEmpty);
+  };
+  const editor: Editor = new Editor({
+    element: host,
+    content: "",
+    contentType: "markdown",
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+        underline: false,
+        trailingNode: false,
+        link: { openOnClick: false },
+      }),
+      TaskList,
+      TaskItem.configure({ nested: true, a11y: { checkboxLabel: (node) => `待办事项：${node.textContent || "未命名"}` } }),
+      Markdown.configure({ markedOptions: { breaks: true } }),
+    ],
+    editorProps: {
+      attributes: {
+        role: "textbox",
+        "aria-label": "记录正文",
+        "aria-multiline": "true",
+        "aria-controls": menu.id,
+        "aria-haspopup": "listbox",
+        "aria-expanded": "false",
+      },
+      transformPastedHTML: (html) => DOMPurify.sanitize(html, {
+        ALLOWED_TAGS: ["p", "h1", "h2", "h3", "ul", "ol", "li", "blockquote", "hr", "br", "strong", "b", "em", "i", "s", "del", "pre", "code", "a", "input", "label", "div", "span"],
+        ALLOWED_ATTR: ["href", "title", "start", "type", "checked", "data-type", "data-checked"],
+        ALLOW_DATA_ATTR: false,
+        ALLOW_ARIA_ATTR: false,
+      }),
+      handlePaste: (view, event): boolean => {
+        if (view.state.selection.$from.parent.type.spec.code || event.clipboardData?.getData("text/html")) return false;
+        const text = event.clipboardData?.getData("text/plain");
+        if (!text) return false;
+        return editor.commands.insertContent(text, { contentType: "markdown" });
+      },
+      handleDOMEvents: {
+        compositionstart: () => { composing = true; return false; },
+        compositionend: () => {
+          composing = false;
+          window.setTimeout(render);
+          return false;
+        },
+        keydown: (view, event) => {
+          if (event.isComposing || composing || view.composing || event.keyCode === 229) return true;
+          if (menu.hidden || !visible.length || event.ctrlKey || event.metaKey || event.altKey) return false;
+          if (event.key === "Escape") {
+            event.preventDefault();
+            close();
+            return true;
+          }
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            activeIndex = (activeIndex + (event.key === "ArrowDown" ? 1 : visible.length - 1)) % visible.length;
+            render();
+            return true;
+          }
+          if (event.key === "Enter" || event.key === "Tab") {
+            event.preventDefault();
+            choose(visible[activeIndex]);
+            return true;
+          }
+          return false;
+        },
+      },
+    },
+    onUpdate: () => {
+      syncDirty();
+      activeIndex = 0;
       render();
-      return;
-    }
-    if (event.key === "Enter" || event.key === "Tab") {
-      event.preventDefault();
-      choose(visible[activeIndex]);
-    }
+      host.dispatchEvent(new Event("input", { bubbles: true }));
+    },
+    onSelectionUpdate: render,
+    onFocus: render,
+    onBlur: close,
   });
-  input.addEventListener("blur", () => window.setTimeout(close));
+  const setMarkdown = (markdown: string): void => {
+    editor.commands.setContent(markdown, { contentType: "markdown", emitUpdate: false });
+    editor.view.updateState(EditorState.create({
+      schema: editor.schema,
+      doc: editor.state.doc,
+      plugins: editor.state.plugins,
+    }));
+    syncDirty();
+    close();
+  };
+  syncDirty();
+  close();
+  return {
+    getMarkdown: () => editor.isEmpty ? "" : editor.getMarkdown(),
+    setMarkdown,
+    clear: () => setMarkdown(""),
+    focus: () => { editor.commands.focus(undefined, { scrollIntoView: false }); },
+  };
 }

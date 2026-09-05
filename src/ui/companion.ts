@@ -23,6 +23,7 @@ import { buildBookSummary } from "../summary";
 import { readingContextMaterial } from "../reader-state";
 import { knowledgeNodeLabel } from "./knowledge-canvas";
 import { parseMessageSource, restoreConversation, type MessageSource } from "../conversation-state";
+import type { NoteEditorController } from "./note-editor";
 
 type CompanionElements = {
   annotationDrawer: HTMLElement;
@@ -38,7 +39,7 @@ type CompanionElements = {
   saveAnswer: HTMLButtonElement;
   relatedKnowledge: HTMLElement;
   noteTitle: HTMLInputElement;
-  noteBody: HTMLTextAreaElement;
+  noteBody: HTMLElement;
   noteCommandMenu: HTMLElement;
   currentBookRecords: HTMLButtonElement;
   saveNote: HTMLButtonElement;
@@ -78,6 +79,7 @@ export type CompanionController = {
 
 export function setupCompanion(
   elements: CompanionElements,
+  noteEditor: NoteEditorController,
   openDrawer: () => void,
   beginCapture: (onCaptured: (context: ReadingContext) => void) => boolean,
   getCurrentPageContext: () => Promise<Pick<ReadingContext, "page" | "pageText" | "pageImage">>,
@@ -120,7 +122,8 @@ export function setupCompanion(
     elements.clearConversation.hidden = !thought;
     elements.thoughtMode.setAttribute("aria-selected", String(thought));
     elements.recordMode.setAttribute("aria-selected", String(!thought));
-    (thought ? elements.questionInput : elements.noteBody).focus({ preventScroll: true });
+    if (thought) elements.questionInput.focus({ preventScroll: true });
+    else noteEditor.focus();
   };
   const showContext = (): void => {
     const content = context?.text || (context?.image ? (contextBookBound ? `已截取第 ${context.page} 页` : "已选择图片") : "");
@@ -767,7 +770,8 @@ export function setupCompanion(
   };
   const saveNote = async (): Promise<void> => {
     if (!context) return status("请先打开一本书", true);
-    const body = elements.noteBody.value.trim();
+    const body = noteEditor.getMarkdown().trim();
+    const title = elements.noteTitle.value;
     if (!body) return status("记录正文不能为空", true);
     elements.saveNote.disabled = true;
     try {
@@ -777,7 +781,7 @@ export function setupCompanion(
           bookId: contextBookBound ? context.bookId : undefined,
           chapterId: contextBookBound ? `page-${context.page}` : undefined,
           category: contextBookBound ? undefined : "默认分类",
-          title: elements.noteTitle.value.trim() || body.slice(0, 36),
+          title: title.trim() || body.slice(0, 36),
           bodyMd: body,
           creator: "user",
           basis: contextBookBound ? (context.text || context.image ? "book" : "user_thought") : "external",
@@ -786,8 +790,10 @@ export function setupCompanion(
         evidence: evidence(context),
         assetData: assetData(context),
       });
-      elements.noteTitle.value = "";
-      elements.noteBody.value = "";
+      if (elements.noteTitle.value === title && noteEditor.getMarkdown().trim() === body) {
+        elements.noteTitle.value = "";
+        noteEditor.clear();
+      }
       status("记录已保存");
       onKnowledgeSaved();
     } catch (error) {
