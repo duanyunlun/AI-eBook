@@ -354,7 +354,7 @@ export function mountShell(app: HTMLElement): ShellElements {
               <progress class="dsh-progress" id="dsh-progress" aria-label="DSH 任务进度" hidden></progress>
               <output id="reader-plugin-status" aria-live="polite"></output>
               <div class="settings-actions">
-                <button class="secondary-command" id="reader-plugin-import" type="button" title="只导入可信来源的阅读器插件目录">导入插件</button>
+                <button class="secondary-command" id="reader-plugin-import" type="button" title="选择可信的兼容阅读器插件目录，不支持任意 DSH 插件">更新阅读器插件</button>
                 <button class="secondary-command" id="reader-plugin-restore" type="button">恢复内置插件</button>
               </div>
             </section>
