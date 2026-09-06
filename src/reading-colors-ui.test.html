@@ -1,0 +1,47 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>阅读配色回归</title>
+<div id="app"></div><output id="result" style="position:fixed;top:0;z-index:99999"></output>
+<script type="module">
+import { mountShell } from './ui/shell.ts';
+import { setupReadingColors } from './reading-colors.ts';
+import './styles.css';
+const elements = mountShell(document.querySelector('#app'));
+const panel = elements.settingsPanel;
+localStorage.removeItem('reading-colors');
+setupReadingColors(panel);
+elements.emptyState.hidden = true;
+elements.pageStage.hidden = false;
+elements.pageStage.innerHTML = '<article class="text-page"><h1>阅读配色</h1><div class="text-page-content">文字保持清晰，页面减少强光。</div></article><article class="pdf-page" style="width:320px;height:160px"><canvas width="320" height="160"></canvas></article>';
+const canvas = elements.pageStage.querySelector('canvas');
+const ctx = canvas.getContext('2d');
+ctx.fillStyle = 'white'; ctx.fillRect(0,0,320,160);
+ctx.fillStyle = 'black'; ctx.font = '24px sans-serif'; ctx.fillText('PDF page',20,50);
+ctx.fillStyle = '#208858'; ctx.fillRect(20,80,100,50);
+const original = canvas.toDataURL();
+const mode = document.querySelector('#reading-color-mode');
+const pdf = document.querySelector('#reading-color-pdf');
+const strength = document.querySelector('#reading-color-strength');
+const assert = (value,message) => { if(!value) throw new Error(message); };
+try {
+  assert(mode.value === 'original' && !pdf.checked && strength.disabled, '默认值错误');
+  mode.value = 'comfort'; mode.dispatchEvent(new Event('change'));
+  assert(getComputedStyle(elements.pageStage.querySelector('.text-page')).backgroundColor === 'rgb(220, 229, 220)', '文本护眼底色未生效');
+  assert(getComputedStyle(canvas).filter === 'none', 'PDF 未开启却被调色');
+  pdf.checked = true; pdf.dispatchEvent(new Event('change'));
+  assert(!strength.disabled && getComputedStyle(canvas).filter.includes('brightness'), 'PDF 调色未生效');
+  strength.value = '0'; strength.dispatchEvent(new Event('input'));
+  assert(getComputedStyle(canvas).filter === 'none', '零强度未恢复原色');
+  strength.value = '60'; strength.dispatchEvent(new Event('input'));
+  mode.value = 'night'; mode.dispatchEvent(new Event('change'));
+  assert(getComputedStyle(canvas).filter.includes('invert'), '夜间 PDF 未生效');
+  document.documentElement.dataset.theme = 'light';
+  assert(document.documentElement.dataset.readingColor === 'night', '阅读配色受界面主题影响');
+  assert(canvas.toDataURL() === original, '截图像素被改变');
+  setupReadingColors(panel);
+  assert(mode.value === 'night' && pdf.checked, '配色未持久化');
+  mode.value = 'original'; mode.dispatchEvent(new Event('change'));
+  assert(getComputedStyle(canvas).filter === 'none', '原色未恢复');
+  mode.value = 'night'; mode.dispatchEvent(new Event('change'));
+  document.querySelector('#result').textContent = 'PASS：默认原色、独立主题、文本配色、PDF 开关与强度、持久化、截图像素不变';
+} catch(error) { document.querySelector('#result').textContent = 'FAIL：'+error.message; }
+panel.setAttribute('aria-hidden','false'); panel.inert = false;
+</script></html>

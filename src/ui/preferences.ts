@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { setupReadingColors } from "../reading-colors";
 import type { AppearanceSettings, ThemeController } from "./theme";
 
 export type ShortcutId =
@@ -84,6 +85,7 @@ export function setupPreferences(
   theme: ThemeController,
   actions: Record<ShortcutId, () => void>,
 ): void {
+  setupReadingColors(panel);
   const get = <T extends Element>(selector: string): T => {
     const element = panel.querySelector<T>(selector);
     if (!element) throw new Error(`缺少偏好设置元素：${selector}`);
