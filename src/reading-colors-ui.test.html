@@ -40,8 +40,15 @@ try {
   assert(mode.value === 'night' && pdf.checked, '配色未持久化');
   mode.value = 'original'; mode.dispatchEvent(new Event('change'));
   assert(getComputedStyle(canvas).filter === 'none', '原色未恢复');
-  mode.value = 'night'; mode.dispatchEvent(new Event('change'));
-  document.querySelector('#result').textContent = 'PASS：默认原色、独立主题、文本配色、PDF 开关与强度、持久化、截图像素不变';
+  const background = document.querySelector('#reading-color-background');
+  background.value = '#203040'; background.dispatchEvent(new Event('input'));
+  assert(mode.value === 'custom' && strength.disabled, '自定义模式未启用');
+  const textPage = elements.pageStage.querySelector('.text-page');
+  assert(getComputedStyle(textPage).backgroundColor === 'rgb(32, 48, 64)' && getComputedStyle(textPage).color === 'rgb(255, 255, 255)', '自定义背景或文字对比度错误');
+  assert(getComputedStyle(canvas).filter.includes('reading-pdf-custom') && canvas.toDataURL() === original, 'PDF 自定义滤镜或截图错误');
+  setupReadingColors(panel);
+  assert(background.value === '#203040' && mode.value === 'custom', '自定义颜色未持久化');
+  textPage.style.minHeight = '200px';
+  document.querySelector('#result').textContent = 'PASS：预设配色、自定义背景与对比度、PDF 滤镜、持久化、截图像素不变';
 } catch(error) { document.querySelector('#result').textContent = 'FAIL：'+error.message; }
-panel.setAttribute('aria-hidden','false'); panel.inert = false;
 </script></html>

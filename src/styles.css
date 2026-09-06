@@ -131,6 +131,7 @@ select:focus-visible {
 :root[data-reading-color="original"] { --reading-paper: #ffffff; --reading-ink: #252825; }
 :root[data-reading-color="comfort"] { --reading-paper: #dce5dc; --reading-ink: #26332b; }
 :root[data-reading-color="night"] { --reading-paper: #252827; --reading-ink: #ced2cf; }
+:root[data-reading-color="custom"] { --reading-paper: var(--reading-custom-paper); --reading-ink: var(--reading-custom-ink); }
 
 .textLayer {
   position: absolute;

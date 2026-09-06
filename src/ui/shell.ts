@@ -263,7 +263,8 @@ export function mountShell(app: HTMLElement): ShellElements {
               </div>
               <h2>阅读配色</h2>
               <div class="appearance-settings">
-                <label><span>页面配色</span><select id="reading-color-mode"><option value="original">原色</option><option value="comfort">护眼</option><option value="night">夜间</option></select></label>
+                <label><span>页面配色</span><select id="reading-color-mode"><option value="original">原色</option><option value="comfort">护眼</option><option value="night">夜间</option><option value="custom">自定义</option></select></label>
+                <label><span>自定义背景</span><input id="reading-color-background" type="color" aria-label="自定义阅读背景色" /></label>
                 <label><span>PDF 页面调色</span><input id="reading-color-pdf" type="checkbox" title="同时调整 PDF 的文字与插图颜色；关闭后恢复原色" /></label>
                 <label><span>PDF 调色强度</span><span class="font-size-control"><input id="reading-color-strength" type="range" min="0" max="100" step="5" /><output id="reading-color-value"></output></span></label>
               </div>
