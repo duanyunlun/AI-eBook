@@ -9,12 +9,10 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 base64 = "0.22"
-eventsource-stream = "0.2.3"
 fontdb = "0.24"
 futures-util = "0.3"
 git2 = "0.21"
 keyring = "4.2"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 rfd = "0.17.2"
 rusqlite = { version = "0.40.2", default-features = false, features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
@@ -24,4 +22,5 @@ tauri = { version = "2", features = ["protocol-asset"] }
 tokio = { version = "1", features = ["process", "io-util", "time", "sync"] }
 thiserror = "2"
 uuid = { version = "1.26", features = ["v7"] }
+url = "2"
 zeroize = "1"

@@ -66,7 +66,7 @@ fn npm_command() -> Command {
 }
 
 fn validated_registry(value: &str) -> Result<String, String> {
-    let url = reqwest::Url::parse(value).map_err(|_| "npm 源地址无效".to_owned())?;
+    let url = url::Url::parse(value).map_err(|_| "npm 源地址无效".to_owned())?;
     if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
         return Err("npm 源地址必须是 HTTP 或 HTTPS URL".into());
     }

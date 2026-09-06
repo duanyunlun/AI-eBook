@@ -2,7 +2,7 @@
 
 ## 使用与更新
 
-在设置的 AI 页手动检查并安装 DSH，再将“对话运行时”切换为“内置 DSH + 阅读器插件”。默认仍为直连；不自动安装、更新或回退运行时。需要本机 Node.js/npm，当前集成验证使用 Node.js 24 与 `@deepseek-ai/dsh@0.1.2-rc.1`。
+DSH 是唯一 AI 运行时。先在设置的 AI 页手动检查并安装 DSH，再配置模型并测试连接。伴读、翻译、解释、总结和测试连接均经过 DSH，没有直连入口或回退路径；旧版本保存的运行时选择不再读取。不自动安装或更新运行时。需要本机 Node.js/npm，当前集成验证使用 Node.js 24 与 `@deepseek-ai/dsh@0.1.2-rc.1`。
 
 DSH 沿用 `<app-data>/dsh-runtime` 的 npm `--prefix` 安装，绝不使用全局 DSH。阅读器插件位于 `<app-data>/dsh-reader/plugins/<内容哈希>`，当前选择记录在 `active-plugin.json`；每次请求使用临时 reader profile，正常结束或取消时清理。应用崩溃可能遗留请求临时目录。
 

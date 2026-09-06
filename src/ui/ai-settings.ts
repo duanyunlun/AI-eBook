@@ -78,7 +78,6 @@ export function getAiSettings(): ProviderSettings {
 export const getCompanionSystemPrompt = (): string => getStoredSettings().systemPrompt;
 export const getSummaryPrompt = (): string => localStorage.getItem("summary-prompt")?.trim() || defaultSummaryPrompt;
 export const getTranslationLanguage = (): string => localStorage.getItem(translationLanguageKey) || "简体中文";
-export const getAiRuntime = (): "direct" | "dsh" => localStorage.getItem("ai-runtime") === "dsh" ? "dsh" : "direct";
 
 export function setupAiSettings(
   openButton: HTMLButtonElement,
@@ -128,9 +127,6 @@ export function setupAiSettings(
   const dshRegistry = get<HTMLInputElement>("#dsh-registry");
   const dshUpdate = get<HTMLButtonElement>("#dsh-update");
   const dshProgress = get<HTMLProgressElement>("#dsh-progress");
-  const runtime = get<HTMLSelectElement>("#ai-runtime");
-  runtime.value = getAiRuntime();
-  runtime.addEventListener("change", () => localStorage.setItem("ai-runtime", runtime.value));
   const pluginStatus = get<HTMLOutputElement>("#reader-plugin-status");
   type PluginStatus = { pluginVersion: string; dshVersion?: string; compatible: boolean };
   const showPlugin = (value: PluginStatus): void => {
@@ -321,10 +317,14 @@ export function setupAiSettings(
   testButton.addEventListener("click", () => {
     if (!form.reportValidity()) return;
     busy(true);
-    setStatus("正在连接…");
+    setStatus("正在通过 DSH 连接…");
+    let reply = "";
     void save()
-      .then(() => invoke<string>("test_ai_provider", { provider: providerValues() }))
-      .then((reply) => setStatus(`连接成功：${reply.trim() || "已收到响应"}`))
+      .then(async () => {
+        const { streamAi } = await import("../api");
+        await streamAi(crypto.randomUUID(), [{ role: "user", content: [{ type: "text", text: "不调用工具，仅回复 OK" }] }], (delta) => { reply += delta; }, { onReset: () => { reply = ""; } });
+      })
+      .then(() => setStatus(`DSH 连接成功：${reply.trim() || "已收到响应"}`))
       .catch((error) => setStatus(String(error), true))
       .finally(() => busy(false));
   });

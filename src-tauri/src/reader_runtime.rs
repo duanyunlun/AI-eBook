@@ -219,7 +219,7 @@ pub(crate) async fn generate(
     let runtime = dsh::runtime_root(app)?;
     let package = runtime.join("node_modules/@deepseek-ai/dsh/package.json");
     if !package.exists() {
-        return Err("请先在 AI 设置中手动安装内置 DSH，或选择直连模式".into());
+        return Err("请先在 AI 设置中手动安装内置 DSH".into());
     }
     let version = read_manifest(&package)?;
     let home = plugin_home(app)?;
@@ -236,7 +236,7 @@ pub(crate) async fn generate(
         &read_manifest(&plugin.join("package.json"))?,
         version["version"].as_str().unwrap_or(""),
     ) {
-        return Err("阅读器插件与内置 DSH 不兼容，请手动更新匹配版本；未切换到直连模式".into());
+        return Err("阅读器插件与内置 DSH 不兼容，请手动更新匹配版本".into());
     }
     let request_home = home.join("requests").join(request_id);
     let _files = RequestFiles(request_home.clone());

@@ -6,9 +6,7 @@ pub mod library;
 pub mod reader_runtime;
 pub mod storage;
 
-use ai::{
-    AiClient, AiMessage, ContentPart, GenerateRequest, MessageRole, ProviderConfig, StreamEvent,
-};
+use ai::AiMessage;
 use futures_util::future::{AbortHandle, Abortable};
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
@@ -18,7 +16,7 @@ use std::{
 };
 use storage::KnowledgeStore;
 use tauri::{Manager, ipc::Channel};
-use zeroize::Zeroize;
+use zeroize::Zeroizing;
 
 const AI_KEY_SERVICE: &str = "app.aiebook.reader";
 
@@ -37,8 +35,6 @@ struct AiConversationRequest {
     request_id: String,
     provider: PublicProviderConfig,
     messages: Vec<AiMessage>,
-    #[serde(default)]
-    runtime: Option<String>,
 }
 
 #[derive(Default)]
@@ -104,85 +100,28 @@ fn save_ai_api_key(provider: PublicProviderConfig, api_key: String) -> Result<()
 }
 
 #[tauri::command]
-async fn test_ai_provider(provider: PublicProviderConfig) -> Result<String, String> {
-    if provider.model.trim().is_empty() {
-        return Err("模型名称不能为空".into());
-    }
-    let api_key = read_ai_api_key(&provider)?;
-    let mut config = ProviderConfig {
-        protocol: provider.protocol,
-        base_url: provider.base_url,
-        model: provider.model,
-        api_key,
-    };
-    let request = GenerateRequest {
-        messages: vec![AiMessage {
-            role: MessageRole::User,
-            content: vec![ContentPart::Text {
-                text: "仅回复 OK".into(),
-            }],
-        }],
-        max_output_tokens: 16,
-        temperature: Some(0.0),
-    };
-    let mut output = String::new();
-    let result = AiClient::new()
-        .map_err(|error| error.to_string())?
-        .generate_stream(&config, &request, |event| {
-            if let StreamEvent::TextDelta(text) = event {
-                output.push_str(&text);
-            }
-        })
-        .await;
-    config.api_key.zeroize();
-    result.map_err(|error| error.to_string())?;
-    Ok(output)
-}
-
-#[tauri::command]
 async fn generate_ai(
     app: tauri::AppHandle,
-    request: AiConversationRequest,
+    mut request: AiConversationRequest,
     on_event: Channel<AiOutput>,
     requests: tauri::State<'_, AiRequests>,
 ) -> Result<(), String> {
     uuid::Uuid::parse_str(&request.request_id).map_err(|_| "AI 请求标识无效")?;
-    if !matches!(
-        request.runtime.as_deref(),
-        None | Some("direct") | Some("dsh")
-    ) {
-        return Err("AI 运行时无效".into());
-    }
     if request.provider.model.trim().is_empty() {
         return Err("请先在设置中配置 AI 模型".into());
     }
-    let api_key = read_ai_api_key(&request.provider)?;
-    let max_output_tokens = request.provider.max_output_tokens.clamp(1, 131_072);
-    let mut config = ProviderConfig {
-        protocol: request.provider.protocol,
-        base_url: request.provider.base_url,
-        model: request.provider.model,
-        api_key,
-    };
-    let generation = GenerateRequest {
-        messages: request.messages,
-        max_output_tokens,
-        temperature: Some(0.2),
-    };
-    let client = AiClient::new().map_err(|error| error.to_string())?;
+    let api_key = Zeroizing::new(read_ai_api_key(&request.provider)?);
+    request.provider.max_output_tokens = request.provider.max_output_tokens.clamp(1, 131_072);
     let (abort_handle, abort_registration) = AbortHandle::new_pair();
     {
         let mut registry = requests.0.lock().map_err(|_| "AI 请求状态不可用")?;
         if registry.runtime_updating {
-            config.api_key.zeroize();
             return Err("DSH 正在手动更新，请稍后再发送".into());
         }
         if registry.active.contains_key(&request.request_id) {
-            config.api_key.zeroize();
             return Err("AI 请求标识重复".into());
         }
         if registry.cancelled.remove(&request.request_id) {
-            config.api_key.zeroize();
             return Err("AI 请求已中断".into());
         }
         registry
@@ -190,36 +129,15 @@ async fn generate_ai(
             .insert(request.request_id.clone(), abort_handle);
     }
     let result = Abortable::new(
-        async {
-            if request.runtime.as_deref() == Some("dsh") {
-                let provider = PublicProviderConfig {
-                    protocol: config.protocol,
-                    base_url: config.base_url.clone(),
-                    model: config.model.clone(),
-                    max_output_tokens,
-                };
-                return reader_runtime::generate(
-                    &app,
-                    &requests,
-                    &request.request_id,
-                    &provider,
-                    &config.api_key,
-                    &generation.messages,
-                    &on_event,
-                )
-                .await;
-            }
-            client
-                .generate_stream(&config, &generation, |event| {
-                    let output = match event {
-                        StreamEvent::TextDelta(text) => AiOutput::Delta(text),
-                        StreamEvent::Finished => AiOutput::Finished,
-                    };
-                    let _ = on_event.send(output);
-                })
-                .await
-                .map_err(|error| error.to_string())
-        },
+        reader_runtime::generate(
+            &app,
+            &requests,
+            &request.request_id,
+            &request.provider,
+            &api_key,
+            &request.messages,
+            &on_event,
+        ),
         abort_registration,
     )
     .await;
@@ -234,7 +152,6 @@ async fn generate_ai(
                 .tools
                 .retain(|(id, _), _| id != &request.request_id);
         });
-    config.api_key.zeroize();
     cleanup?;
     result
         .map_err(|_| "AI 请求已中断".to_owned())?
@@ -263,7 +180,6 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             has_ai_api_key,
             save_ai_api_key,
-            test_ai_provider,
             generate_ai,
             cancel_ai,
             list_system_fonts,

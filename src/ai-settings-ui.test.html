@@ -10,13 +10,23 @@ import "./styles.css";
 const elements = mountShell(document.querySelector("#app"));
 const get = (id) => document.getElementById(id);
 const panel = get("ai-settings-form").closest("aside");
-window.__TAURI_INTERNALS__ = { invoke: async (command) => {
+let generated = 0;
+let missingDsh = false;
+window.__TAURI_INTERNALS__ = { transformCallback: () => 1, unregisterCallback: () => {}, invoke: async (command, args) => {
   if (command === "has_ai_api_key") return false;
+  if (command === "generate_ai") {
+    generated++;
+    if ("runtime" in args.request) throw new Error("仍然发送运行时选择");
+    if (missingDsh) throw new Error("请先在 AI 设置中手动安装内置 DSH");
+    args.onEvent.onmessage({ type: "delta", data: "OK" });
+    return;
+  }
   throw new Error(`意外调用：${command}`);
 } };
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 try {
   setupAiSettings(elements.openSettings, panel, () => {}, () => {}, get("vault-path"), get("choose-vault"));
+  assert(!get("ai-runtime"), "仍显示运行时选择");
   const form = get("ai-prompts-form");
   assert(form.nextElementSibling.querySelector("#dsh-registry"), "提示词模块不在 DSH 上方");
   assert(get("ai-translate-prompt").parentElement.nextElementSibling.contains(get("translation-language")), "翻译语言未紧随提示词");
@@ -40,7 +50,21 @@ try {
   }
   form.requestSubmit();
   assert(!getCompanionSystemPrompt().includes("自定义"), "恢复默认未生效");
-  get("result").textContent = "PASS：模块顺序、翻译语言位置、无模型独立保存、四种提示词、恢复默认";
+  localStorage.setItem("ai-runtime", "direct");
+  get("ai-base-url").value = "https://example.com/v1";
+  get("ai-model").value = "test-model";
+  const testButton = get("ai-test");
+  const testConnection = async () => {
+    testButton.click();
+    for (let attempt = 0; attempt < 100 && testButton.disabled; attempt++) await new Promise((done) => setTimeout(done, 10));
+    assert(!testButton.disabled, "测试连接未结束");
+  };
+  await testConnection();
+  assert(generated === 1 && get("ai-settings-status").textContent.includes("DSH 连接成功：OK"), "测试连接未复用 DSH 请求入口");
+  missingDsh = true;
+  await testConnection();
+  assert(generated === 2 && get("ai-settings-status").textContent.includes("手动安装内置 DSH"), "DSH 不可用时未报错或发生回退");
+  get("result").textContent = "PASS：提示词布局与保存、恢复默认、移除运行时选择、旧设置不生效、测试连接走 DSH、缺失运行时报错";
 } catch (error) {
   get("result").textContent = `FAIL：${error.message}`;
 }

@@ -344,10 +344,6 @@ export function mountShell(app: HTMLElement): ShellElements {
             <section class="dsh-settings">
               <h2>DSH 运行时</h2>
               <label>
-                <span>对话运行时</span>
-                <select id="ai-runtime"><option value="direct">直连模型</option><option value="dsh">内置 DSH + 阅读器插件</option></select>
-              </label>
-              <label>
                 <span>npm 源</span>
                 <input id="dsh-registry" type="url" required spellcheck="false" />
               </label>

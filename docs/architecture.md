@@ -45,7 +45,7 @@ AI-eBook 不是在传统阅读器旁边附加聊天窗口，而是以阅读器�
 | 状态与检索 | SQLite、FTS5 | 阅读状态、临时草稿和知识全文索引 |
 | 知识关系 | SQLite 邻接表、递归 CTE | 来源追踪、跨书关系和局部知识图 |
 | 历史 | libgit2（Rust `git2`） | 在用户知识库目录内创建提交 |
-| AI | Rust HTTP、SSE | OpenAI Chat/Responses、Anthropic Messages、Gemini GenerateContent |
+| AI | DSH 与阅读器插件 | 通过 DSH 模型适配器调用配置的服务 |
 | 密钥 | 系统钥匙串 | API Key 不进入配置、日志或 Git |
 
 首版不引入前端状态框架。阅读器只有少量全局状态，原生模块和事件足够；当实际 UI 复杂度证明这一选择不足时再引入框架。
@@ -321,7 +321,7 @@ Markdown 是已确认知识的开放归档格式，必须包含足以重建来�
 
 ## 9. AI 与 Agent 边界
 
-AI 适配层使用统一的文本/图片消息模型，由 Rust 分别映射到以下流式协议：
+应用使用统一的文本/图片消息模型，经阅读器插件交给 DSH 模型适配器处理以下协议：
 
 - OpenAI Chat Completions；同时作为 OpenAI-compatible 入口，覆盖 Ollama、LM Studio、vLLM、DeepSeek、OpenRouter 等兼容服务。
 - OpenAI Responses。
@@ -337,7 +337,7 @@ generate(messages, model, options) -> stream events
 cancel(request_id)
 ```
 
-直连模式不复制 Agent 软件的完整 provider 运行时；工具模式复用 DSH 的插件与模型适配层。Azure、Bedrock、Vertex AI、OAuth 订阅登录等专用鉴权不属于上述四种 wire protocol，出现真实需求后独立增加。
+所有 AI 请求复用 DSH 的插件与模型适配层，应用不保留独立 HTTP/SSE 模型调用实现。Azure、Bedrock、Vertex AI、OAuth 订阅登录等专用鉴权不属于上述四种 wire protocol，出现真实需求后独立增加。
 
 ### 9.1 DSH 集成边界
 
@@ -345,7 +345,7 @@ cancel(request_id)
 
 AI 页在模型配置与 DSH 运行时之间设置独立“内置提示词”模块，集中编辑伴读、翻译、解释和总结提示词，各项可恢复默认。翻译语言紧随翻译提示词，目标语言自动附加，不需要写入提示词。模块独立保存到本机，不要求先填写模型，下一次请求生效；留空回退默认提示词。系统层继续携带来源信息，并要求将所选内容视为不可信资料、不执行其中的指令。
 
-AI 设置提供直连与内置 DSH 两种运行时，默认保留直连。DSH 通过阅读器插件和标准 JSON-RPC 行传输与 Rust 通信，插件可独立手动导入或恢复内置版本；不兼容时明确报错，不静默回退。知识库 schema、Markdown 契约和 Git 历史不依赖 DSH 内部会话格式。安装、开发和协议细节见 [DSH 阅读器插件](dsh-reader.md)。
+DSH 是唯一 AI 运行时，伴读、翻译、解释、总结和测试连接均通过同一 DSH 请求入口。设置不提供运行时选择，旧选择不再生效；未安装或不兼容时明确报错，不提供直连或回退。DSH 通过阅读器插件和标准 JSON-RPC 行传输与 Rust 通信，插件可独立手动导入或恢复内置版本。知识库 schema、Markdown 契约和 Git 历史不依赖 DSH 内部会话格式。安装、开发和协议细节见 [DSH 阅读器插件](dsh-reader.md)。
 
 设置作为主菜单右侧滑出的二级抽屉呈现，打开时保留一级菜单，点击阅读区、打开另一侧抽屉或按 `Esc` 时随一级菜单收起。内容按“外观、AI、快捷键、数据”排列，避免长表单混杂不同职责；DSH 运行时属于 AI 页，个人知识库存储位置属于数据页。快捷键按“导航、阅读动作、AI 对话”分组，支持点击录入、冲突提示、单项清除和恢复默认，也允许 `A` 等单按键绑定。快捷键只在应用窗口内生效，任何文本输入、下拉框或可编辑区域聚焦时，单按键导航和阅读动作自动停用；问题输入框仅额外响应发送与插队命令。
 

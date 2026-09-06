@@ -1,5 +1,5 @@
 import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
-import { getAiSettings, getAiRuntime } from "./ui/ai-settings";
+import { getAiSettings } from "./ui/ai-settings";
 import type { ReaderToolHandler } from "./ui/reader-tools";
 
 export type BookRecord = {
@@ -175,7 +175,7 @@ export async function streamAi(
   });
   try {
     await invoke("generate_ai", {
-      request: { requestId, provider: getAiSettings(), messages, runtime: getAiRuntime() },
+      request: { requestId, provider: getAiSettings(), messages },
       onEvent,
     });
   } finally { controller.abort(); }
