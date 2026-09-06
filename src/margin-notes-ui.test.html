@@ -9,6 +9,8 @@ import './styles.css';
 const items = [];
 localStorage.removeItem('annotations-pinned');
 let failSave = true;
+let failDelete = true;
+window.confirm=()=>{throw new Error('不应调用系统 confirm');};
 window.__TAURI_INTERNALS__ = {convertFileSrc:()=>location.origin+'/fixture.md',invoke:async(command,args)=>{
   if(command==='save_reading_page')return;
   if(command==='list_book_annotations')return structuredClone(items.filter(entry=>entry.item.bookId===args.bookId));
@@ -18,7 +20,7 @@ window.__TAURI_INTERNALS__ = {convertFileSrc:()=>location.origin+'/fixture.md',i
     items.push({item,quote:args.request.evidence.textSnapshot,locator:args.request.evidence.locator});return item;
   }
   if(command==='update_knowledge_item'){ const entry=items.find(entry=>entry.item.id===args.request.id);Object.assign(entry.item,args.request);return entry.item; }
-  if(command==='delete_knowledge_item'){items.splice(items.findIndex(entry=>entry.item.id===args.id),1);return;}
+  if(command==='delete_knowledge_item'){if(failDelete)throw new Error('删除失败');items.splice(items.findIndex(entry=>entry.item.id===args.id),1);return;}
   throw new Error(command);
 }};
 const originalFetch=window.fetch.bind(window);
@@ -58,9 +60,16 @@ try {
   assert(elements.annotationDrawer.getAttribute('aria-hidden')==='false','固定侧栏仍然自动收起');
   const page=elements.pageStage.querySelector('.text-page');page.style.width='400px';await tick();
   assert(annotationRects(page,items[0].locator,items[0].quote).length>0,'重排后定位失败');
-  const originalConfirm=window.confirm;window.confirm=()=>true;
-  get('margin-notes-list').querySelector('button').click();get('margin-note-delete').click();await wait(()=>items.length===0&&!get('margin-note-delete').disabled);
-  assert(!elements.pageStage.querySelector('.margin-note-mark'),'删除后仍有标记');window.confirm=originalConfirm;
+  get('margin-notes-list').querySelector('button').click();get('margin-note-delete').click();
+  assert(get('margin-notes-panel').querySelector('.thread-delete-confirmation')&&!document.querySelector('dialog[open]'),'未显示行内确认或意外弹窗');
+  get('margin-notes-panel').querySelector('.thread-delete-confirmation button:last-child').click();await tick();
+  assert(items.length===1,'取消仍然删除了批注');
+  get('margin-note-delete').click();get('margin-notes-panel').querySelector('.thread-delete-confirmation .thread-delete').click();
+  await wait(()=>get('margin-note-status').textContent.includes('删除失败'));
+  assert(items.length===1&&elements.pageStage.querySelector('.margin-note-mark'),'失败丢失批注');
+  await tick();failDelete=false;get('margin-note-delete').click();get('margin-notes-panel').querySelector('.thread-delete-confirmation .thread-delete').click();
+  await wait(()=>items.length===0&&!get('margin-note-delete').disabled);
+  assert(!elements.pageStage.querySelector('.margin-note-mark'),'删除后仍有标记');
   items.push({item:{id:'demo',bookId:'book',kind:'thought',creator:'user',bodyMd:'这里强调的是主动阅读。下次重读时，先列出自己的问题。'},quote:range.toString().trim(),locator:{annotation:true,page:1,format:'md',editionId:'edition',start:0,end:25,rects:[]}});
   page.style.width='';notes.setBook(book);await tick();await notes.refresh();
   get('margin-notes-list').querySelector('button').click();

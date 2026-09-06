@@ -22,7 +22,26 @@ export function setupMarginNotes(stage: HTMLElement, drawer: HTMLElement, openDr
   const dirty = (): boolean => editor.getMarkdown().trim() !== baseline.trim();
   const syncDirty = (): void => { host.dataset.noteDirty = String(dirty()); };
   host.addEventListener("input", syncDirty);
-  const changeAllowed = (): boolean => !saving && (!dirty() || window.confirm("放弃尚未保存的批注修改？"));
+  let confirmation: HTMLElement | undefined;
+  const clearConfirmation = (): void => { confirmation?.remove(); confirmation = undefined; };
+  const confirmAction = (message: string, action: () => void, label = "确认放弃"): void => {
+    clearConfirmation();
+    const notice = document.createElement("div");
+    confirmation = notice; notice.className = "thread-delete-confirmation";
+    notice.setAttribute("role", "group"); notice.setAttribute("aria-label", message);
+    const heading = document.createElement("p"); heading.textContent = message;
+    const cancel = document.createElement("button"); cancel.textContent = "取消"; cancel.className = "secondary-command";
+    const approve = document.createElement("button"); approve.textContent = label; approve.className = "thread-delete secondary-command";
+    cancel.addEventListener("click", () => { clearConfirmation(); back.focus(); });
+    approve.addEventListener("click", () => { clearConfirmation(); action(); });
+    notice.append(heading, approve, cancel); panel.insertBefore(notice, status); cancel.focus();
+  };
+  const changeAllowed = (action: () => void): void => {
+    if (saving) return;
+    clearConfirmation();
+    if (dirty()) confirmAction("放弃尚未保存的批注修改？", action);
+    else action();
+  };
   const show = (): void => {
     drawer.dataset.mode = "annotation";
     get("thought-panel").hidden = true; get("record-panel").hidden = true; get("clear-conversation").hidden = true;
@@ -36,12 +55,14 @@ export function setupMarginNotes(stage: HTMLElement, drawer: HTMLElement, openDr
     target?.scrollIntoView({ block: "start", behavior: "smooth" });
   };
   const edit = (entry?: BookAnnotation, nextDraft = entry && { quote: entry.quote, locator: entry.locator }): void => {
-    if (!nextDraft || !changeAllowed()) return;
+    if (!nextDraft) return;
+    changeAllowed(() => {
     selected = entry; draft = nextDraft; baseline = entry?.item.bodyMd || "";
     editor.setMarkdown(baseline); syncDirty(); quote.textContent = draft.quote;
     source.textContent = `第 ${draft.locator.page} ${book?.format === "pdf" ? "页" : "章"} · 原文`;
     editorPanel.hidden = false; list.hidden = true; remove.hidden = !entry; status.textContent = "";
     show(); if (entry) locate(entry.locator); else editor.focus();
+    });
   };
   const renderList = (): void => {
     list.replaceChildren();
@@ -111,13 +132,15 @@ export function setupMarginNotes(stage: HTMLElement, drawer: HTMLElement, openDr
   });
   source.addEventListener("click", () => { if (draft) locate(draft.locator); });
   back.addEventListener("click", () => {
-    if (!changeAllowed()) return;
+    changeAllowed(() => {
     selected = undefined; draft = undefined; baseline = ""; editor.clear(); syncDirty(); editorPanel.hidden = true; list.hidden = false; renderList();
     if (book) drafts.delete(book.id);
+    });
   });
   const busy = (value: boolean): void => { saving = value; save.disabled = value; remove.disabled = value; back.disabled = value; };
   save.addEventListener("click", async () => {
     if (!draft || !book || saving) return;
+    clearConfirmation();
     const body = editor.getMarkdown().trim();
     if (!body) { status.textContent = "请输入批注内容"; return; }
     const current = book.id, anchor = structuredClone(draft), entry = selected;
@@ -137,16 +160,18 @@ export function setupMarginNotes(stage: HTMLElement, drawer: HTMLElement, openDr
     } catch { if (book?.id === current) status.textContent = "保存失败，内容已保留，请重试"; }
     finally { busy(false); }
   });
-  remove.addEventListener("click", async () => {
-    if (!selected || saving || !window.confirm("删除这条批注及其页面标记？")) return;
+  remove.addEventListener("click", () => {
+    if (!selected || saving) return;
     const id = selected.item.id, current = book?.id;
+    confirmAction("删除这条批注及其页面标记？", async () => {
     busy(true);
     try {
       await deleteKnowledge(id); onSaved();
       if (current !== book?.id) return;
       baseline = ""; editor.clear(); syncDirty(); selected = undefined; draft = undefined; editorPanel.hidden = true; list.hidden = false;
       await refresh(); status.textContent = "已删除";
-    } catch { status.textContent = "删除失败，请重试"; } finally { busy(false); }
+    } catch { if (current === book?.id) status.textContent = "删除失败，请重试"; } finally { busy(false); }
+    }, "确认删除");
   });
   let frame = 0;
   const scheduleMarks = (): void => { cancelAnimationFrame(frame); frame = requestAnimationFrame(renderMarks); };
@@ -157,6 +182,7 @@ export function setupMarginNotes(stage: HTMLElement, drawer: HTMLElement, openDr
     annotate, refresh,
     setPage(next: number) { page = next; renderList(); },
     setBook(next: BookRecord) {
+      clearConfirmation();
       if (book && draft && dirty()) drafts.set(book.id, { selected, draft, body: editor.getMarkdown(), baseline });
       book = next; page = next.lastPage; selection = undefined; entries = []; revision++; status.textContent = "";
       selected = undefined; draft = undefined; baseline = ""; editor.clear(); syncDirty(); editorPanel.hidden = true; list.hidden = false;

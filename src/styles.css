@@ -521,6 +521,8 @@ button:disabled {
 .annotation-drawer[data-mode="annotation"] #capture-page { display: none !important; }
 #pin-margin-notes[aria-pressed="true"] { color: var(--accent); background: var(--surface); }
 #margin-notes-panel { display: flex; flex: 1; flex-direction: column; gap: 12px; min-height: 0; }
+#margin-notes-panel .thread-delete-confirmation { flex: none; padding: 0; }
+#margin-notes-panel .thread-delete-confirmation button { font-size: 12px; padding: 6px 8px; margin-right: 8px; }
 .margin-notes-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: none; }
 .margin-notes-toolbar select { background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 6px; border-radius: 4px; }
 #margin-notes-count, #margin-note-status, .margin-note-empty { color: var(--subtle); font-size: 12px; }
