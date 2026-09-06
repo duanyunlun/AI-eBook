@@ -308,6 +308,13 @@ impl KnowledgeStore {
         if request.body_md.trim().is_empty() {
             return Err(StorageError::InvalidInput("知识项正文不能为空".into()));
         }
+        for evidence in self.evidence_for_item(&request.id)? {
+            if evidence.locator["annotation"] == true && evidence.book_id != request.book_id {
+                return Err(StorageError::InvalidInput(
+                    "批注不能解除或更换原文书籍绑定".into(),
+                ));
+            }
+        }
         let changed = self.lock()?.execute(
             "UPDATE knowledge_items
              SET kind = ?, book_id = ?, category = ?, title = ?, body_md = ?, updated_at = ?
@@ -432,6 +439,32 @@ impl KnowledgeStore {
                 row_to_item,
             )
             .optional()
+            .map_err(StorageError::from)
+    }
+
+    pub fn book_annotations(
+        &self,
+        book_id: &str,
+    ) -> Result<Vec<crate::knowledge::BookAnnotation>, StorageError> {
+        let connection = self.lock()?;
+        let mut statement = connection.prepare(
+            "SELECT i.id, i.kind, i.book_id, i.chapter_id, i.category, i.title, i.body_md,
+                    i.creator, i.basis, i.review_state, i.created_at, i.updated_at,
+                    e.text_snapshot, e.locator_json
+             FROM knowledge_items i JOIN item_evidence ie ON ie.item_id = i.id
+             JOIN evidence e ON e.id = ie.evidence_id
+             WHERE i.book_id = ? AND e.book_id = i.book_id AND json_extract(e.locator_json, '$.annotation') = 1
+             ORDER BY json_extract(e.locator_json, '$.page'), i.created_at"
+        )?;
+        statement
+            .query_map([book_id], |row| {
+                Ok(crate::knowledge::BookAnnotation {
+                    item: row_to_item(row)?,
+                    quote: row.get::<_, Option<String>>(12)?.unwrap_or_default(),
+                    locator: serde_json::from_str(&row.get::<_, String>(13)?).unwrap_or_default(),
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()
             .map_err(StorageError::from)
     }
 
@@ -1046,6 +1079,44 @@ mod tests {
 
     use super::*;
     use crate::knowledge::{EvidenceKind, KnowledgeBasis};
+
+    #[test]
+    fn annotations_preserve_source_and_book_binding() {
+        let store = KnowledgeStore::in_memory().unwrap();
+        store.lock().unwrap().execute("INSERT INTO books (id,title,created_at,updated_at) VALUES ('book','书',0,0),('other','其他书',0,0)", []).unwrap();
+        let item = store.create_item(&serde_json::from_value(json!({
+            "kind":"thought", "bookId":"book", "bodyMd":"我的批注", "creator":"user", "basis":"book", "reviewState":"confirmed"
+        })).unwrap()).unwrap();
+        let evidence = store.create_evidence(&serde_json::from_value(json!({
+            "kind":"text", "bookId":"book", "textSnapshot":"原文", "locator":{"annotation":true,"page":2,"format":"pdf","rects":[{"x":0.1,"y":0.2,"width":0.3,"height":0.02}]}
+        })).unwrap()).unwrap();
+        store
+            .attach_evidence(&item.id, &evidence, "quotes")
+            .unwrap();
+        let notes = store.book_annotations("book").unwrap();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].quote, "原文");
+        assert_eq!(notes[0].locator["page"], 2);
+        assert!(store.book_annotations("other").unwrap().is_empty());
+        for book_id in [None, Some("other")] {
+            let request = serde_json::from_value(
+                json!({"id":item.id,"kind":"thought","bookId":book_id,"bodyMd":"修改"}),
+            )
+            .unwrap();
+            assert!(store.update_item(&request).is_err());
+        }
+        let request = serde_json::from_value(
+            json!({"id":item.id,"kind":"thought","bookId":"book","bodyMd":"修改"}),
+        )
+        .unwrap();
+        store.update_item(&request).unwrap();
+        assert_eq!(
+            store.book_annotations("book").unwrap()[0].item.body_md,
+            "修改"
+        );
+        store.delete_item(&item.id).unwrap();
+        assert!(store.book_annotations("book").unwrap().is_empty());
+    }
 
     #[test]
     fn stores_searches_and_connects_confirmed_knowledge() {

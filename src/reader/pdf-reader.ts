@@ -229,6 +229,7 @@ export function setupPdfReader(
     } finally {
       delete canvas.dataset.rendering;
       renderTasks.delete(pageNumber);
+      elements.pageStage.dispatchEvent(new Event("reader-page-rendered"));
     }
   };
 

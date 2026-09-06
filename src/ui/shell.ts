@@ -111,6 +111,7 @@ export function mountShell(app: HTMLElement): ShellElements {
         <div class="selection-actions" id="selection-actions" role="menu" hidden>
           <button id="selection-think" type="button" role="menuitem">思考</button>
           <button id="selection-record" type="button" role="menuitem">记录</button>
+          <button id="selection-annotate" type="button" role="menuitem" hidden>添加批注</button>
           <button id="selection-translate" type="button" role="menuitem">翻译</button>
           <button id="selection-explain" type="button" role="menuitem">解释</button>
         </div>
@@ -189,8 +190,10 @@ export function mountShell(app: HTMLElement): ShellElements {
             <div class="mode-switch" role="tablist" aria-label="伴读模式">
               <button id="thought-mode" type="button" role="tab" aria-selected="true">思考</button>
               <button id="record-mode" type="button" role="tab" aria-selected="false">记录</button>
+              <button id="margin-note-mode" type="button" role="tab" aria-selected="false">批注</button>
             </div>
             <div class="companion-header-actions">
+              <button class="icon-command" id="pin-margin-notes" type="button" aria-label="固定批注侧栏" title="固定批注侧栏" aria-pressed="false" hidden>⌖</button>
               <button class="clear-conversation" id="clear-conversation" type="button" title="开始新对话，保留历史记录">新对话</button>
               <button class="icon-command capture-page" id="capture-page" type="button" aria-label="截取当前页" title="截取当前页">▣</button>
             </div>
@@ -228,6 +231,17 @@ export function mountShell(app: HTMLElement): ShellElements {
               </div>
             </section>
             <output class="companion-status" id="companion-status" aria-live="polite"></output>
+            <section id="margin-notes-panel" hidden>
+              <div class="margin-notes-toolbar"><select id="margin-notes-scope" aria-label="批注范围"><option value="page">当前页</option><option value="book">本书</option></select><span id="margin-notes-count"></span></div>
+              <div id="margin-notes-list"></div>
+              <section id="margin-note-editor" hidden>
+                <button class="text-command" id="margin-note-source" type="button" title="回到原文"></button>
+                <blockquote id="margin-note-quote"></blockquote>
+                <div class="note-editor"><div id="margin-note-body" class="markdown-body"></div><div class="note-command-menu" id="margin-note-commands" hidden></div></div>
+                <div class="margin-note-actions"><button id="margin-note-delete" class="secondary-command" type="button">删除</button><button id="margin-note-back" class="secondary-command" type="button">返回列表</button><button id="margin-note-save" class="primary-command" type="button">保存批注</button></div>
+              </section>
+              <output id="margin-note-status" aria-live="polite"></output>
+            </section>
           </div>
           <div class="related-knowledge" id="related-knowledge" hidden></div>
         </aside>

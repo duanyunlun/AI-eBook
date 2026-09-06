@@ -222,6 +222,7 @@ select:focus-visible {
 }
 
 .text-page {
+  position: relative;
   width: min(760px, calc(100vw - 96px));
   min-height: calc(100vh - 118px);
   padding: 54px clamp(28px, 7vw, 76px) 68px;
@@ -514,13 +515,40 @@ button:disabled {
   gap: 10px;
 }
 
+.annotation-drawer[data-mode="annotation"] .selection-context,
+.annotation-drawer[data-mode="annotation"] .companion-status,
+.annotation-drawer[data-mode="annotation"] .related-knowledge,
+.annotation-drawer[data-mode="annotation"] #capture-page { display: none !important; }
+#pin-margin-notes[aria-pressed="true"] { color: var(--accent); background: var(--surface); }
+#margin-notes-panel { display: flex; flex: 1; flex-direction: column; gap: 12px; min-height: 0; }
+.margin-notes-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: none; }
+.margin-notes-toolbar select { background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 6px; border-radius: 4px; }
+#margin-notes-count, #margin-note-status, .margin-note-empty { color: var(--subtle); font-size: 12px; }
+#margin-notes-list { overflow: auto; min-height: 0; flex: 1; }
+.margin-note-row { display: block; width: 100%; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); text-align: left; padding: 14px 0; cursor: pointer; }
+.margin-note-row:hover { background: var(--surface); }
+.margin-note-row small { color: var(--subtle); }
+.margin-note-row blockquote, #margin-note-quote { margin: 8px 0; padding: 0 10px; border-left: 3px solid var(--accent); color: var(--subtle); overflow-wrap: anywhere; }
+.margin-note-row blockquote, .margin-note-row p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; }
+#margin-note-editor { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 10px; }
+#margin-note-source { text-align: left; flex: none; }
+#margin-note-quote { max-height: 120px; overflow: auto; flex: none; font-size: 13px; }
+#margin-note-body { height: 100%; overflow: auto; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface); }
+#margin-note-body .tiptap { min-height: 100%; padding: 12px; outline: none; }
+#margin-note-body:focus-within { outline: 2px solid var(--accent); }
+.margin-note-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; flex: none; }
+.margin-note-actions button { font-size: 12px; padding: 6px 8px; }
+.margin-note-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.margin-note-highlight { position: absolute; background: #f2cf4160; mix-blend-mode: multiply; pointer-events: none; }
+.margin-note-mark { position: absolute; right: 3px; width: 22px; height: 22px; padding: 0; display: grid; place-items: center; border: 1px solid var(--accent); border-radius: 4px; color: var(--accent); background: var(--surface-raised); cursor: pointer; pointer-events: auto; font-size: 14px; }
+
 .mode-switch {
   display: grid;
   width: min(190px, 100%);
   min-width: 0;
   flex: 1;
   height: 30px;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   border: 1px solid var(--border);
   border-radius: 5px;
   overflow: hidden;
@@ -1110,16 +1138,16 @@ button:disabled {
 }
 
 #note-body .tiptap { min-height: 100%; padding: 12px; outline: none; }
-#note-body .tiptap > :first-child { margin-top: 0; }
-#note-body .tiptap > :last-child { margin-bottom: 0; }
-#note-body .tiptap p { min-height: 1.65em; }
-#note-body .tiptap ul, #note-body .tiptap ol { padding-left: 1.6em; }
-#note-body .tiptap li > p { margin-bottom: 0.25em; }
-#note-body .tiptap ul[data-type="taskList"] { padding-left: 0; list-style: none; }
-#note-body .tiptap ul[data-type="taskList"] > li { display: flex; align-items: flex-start; gap: 8px; }
-#note-body .tiptap ul[data-type="taskList"] > li > div { min-width: 0; flex: 1; }
-#note-body .tiptap ul[data-type="taskList"] > li > label { display: flex; min-height: 1.65em; align-items: center; }
-#note-body .tiptap input[type="checkbox"] { width: auto; height: auto; margin: 0; accent-color: var(--accent); }
+.note-editor .tiptap > :first-child { margin-top: 0; }
+.note-editor .tiptap > :last-child { margin-bottom: 0; }
+.note-editor .tiptap p { min-height: 1.65em; }
+.note-editor .tiptap ul, .note-editor .tiptap ol { padding-left: 1.6em; }
+.note-editor .tiptap li > p { margin-bottom: 0.25em; }
+.note-editor .tiptap ul[data-type="taskList"] { padding-left: 0; list-style: none; }
+.note-editor .tiptap ul[data-type="taskList"] > li { display: flex; align-items: flex-start; gap: 8px; }
+.note-editor .tiptap ul[data-type="taskList"] > li > div { min-width: 0; flex: 1; }
+.note-editor .tiptap ul[data-type="taskList"] > li > label { display: flex; min-height: 1.65em; align-items: center; }
+.note-editor .tiptap input[type="checkbox"] { width: auto; height: auto; margin: 0; accent-color: var(--accent); }
 #note-body[data-note-dirty="false"] .tiptap > p:first-child::before {
   content: "记录此刻的理解，输入 / 选择内容类型";
   float: left;

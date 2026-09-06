@@ -12,6 +12,7 @@ import { setupNoteEditor } from "./ui/note-editor";
 import { mountShell } from "./ui/shell";
 import { setupPreferences } from "./ui/preferences";
 import { setupTheme } from "./ui/theme";
+import { setupMarginNotes } from "./ui/margin-notes";
 import "./styles.css";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -38,10 +39,11 @@ setupAiSettings(
 const theme = setupTheme(elements.themeToggle);
 
 let companion: CompanionController | undefined;
+let marginNotes: ReturnType<typeof setupMarginNotes> | undefined;
 const reader = setupPdfReader(
   elements,
   (text, page) => companion?.selectText(text, page),
-  (page) => companion?.setPage(page),
+  (page) => { companion?.setPage(page); marginNotes?.setPage(page); },
 );
 const knowledgeDrawers = setupKnowledgeDrawers(elements);
 const knowledge = setupKnowledge(
@@ -67,6 +69,7 @@ companion = setupCompanion(
   knowledge.openItem,
   reader,
 );
+marginNotes = setupMarginNotes(elements.pageStage, elements.annotationDrawer, openCompanion, drawers.toggleAnnotation, () => void knowledge.refresh());
 
 const openBook = async (book: BookRecord): Promise<void> => {
   const totalPages = await reader.open(book);
@@ -77,6 +80,7 @@ const openBook = async (book: BookRecord): Promise<void> => {
     page: book.lastPage,
     totalPages,
   });
+  marginNotes.setBook(book);
 };
 const library = setupLibrary(
   elements,
@@ -99,6 +103,7 @@ setupPreferences(elements.settingsPanel, elements.openSettings, elements.questio
   openSettings: () => elements.openSettings.click(),
   think: () => companion?.openThought(),
   record: () => companion?.openRecord(),
+  annotate: () => marginNotes?.annotate(),
   translate: () => companion?.translate(),
   explain: () => companion?.explain(),
   capture: () => companion?.capture(),

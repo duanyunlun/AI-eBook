@@ -255,6 +255,13 @@ pub struct Evidence {
 }
 
 #[derive(Debug, Serialize)]
+pub struct BookAnnotation {
+    pub item: KnowledgeItem,
+    pub quote: String,
+    pub locator: serde_json::Value,
+}
+
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeGraph {
     pub items: Vec<KnowledgeItem>,
@@ -359,6 +366,23 @@ pub fn save_knowledge_item(
     if request.item.review_state != ReviewState::Confirmed {
         return Err("只有用户确认的知识项才能归档".into());
     }
+    if let Some(evidence) = &request.evidence {
+        if evidence.locator["annotation"] == true {
+            if request.item.book_id.is_none()
+                || evidence.book_id != request.item.book_id
+                || evidence.kind != EvidenceKind::Text
+                || evidence
+                    .text_snapshot
+                    .as_deref()
+                    .unwrap_or("")
+                    .trim()
+                    .is_empty()
+                || evidence.locator["page"].as_u64().unwrap_or(0) == 0
+            {
+                return Err("批注必须绑定书籍、页码和原文".into());
+            }
+        }
+    }
     if let Some(data) = request.asset_data.take() {
         let bytes = STANDARD.decode(data).map_err(|_| "截图数据无效")?;
         if bytes.len() > 8 * 1024 * 1024 {
@@ -450,6 +474,16 @@ pub fn list_knowledge(
 ) -> Result<Vec<KnowledgeItem>, String> {
     store
         .list_items(book_id.as_deref(), 200)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn list_book_annotations(
+    store: State<'_, KnowledgeStore>,
+    book_id: String,
+) -> Result<Vec<BookAnnotation>, String> {
+    store
+        .book_annotations(&book_id)
         .map_err(|error| error.to_string())
 }
 

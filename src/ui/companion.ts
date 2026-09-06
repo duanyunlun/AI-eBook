@@ -119,6 +119,10 @@ export function setupCompanion(
     elements.threadHistory.disabled = value || loadingThread || !contextBookBound;
   };
   const setMode = (mode: "thought" | "record"): void => {
+    elements.annotationDrawer.dataset.mode = mode;
+    elements.annotationDrawer.querySelector<HTMLElement>("#margin-notes-panel")?.setAttribute("hidden", "");
+    elements.annotationDrawer.querySelector("#margin-note-mode")?.setAttribute("aria-selected", "false");
+    elements.annotationDrawer.querySelector<HTMLElement>("#pin-margin-notes")?.setAttribute("hidden", "");
     const thought = mode === "thought";
     elements.thoughtPanel.hidden = !thought;
     elements.recordPanel.hidden = thought;

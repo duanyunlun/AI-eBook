@@ -199,6 +199,7 @@ fn main() {
             knowledge::update_knowledge_item,
             knowledge::delete_knowledge_item,
             knowledge::list_knowledge,
+            knowledge::list_book_annotations,
             knowledge::list_knowledge_books,
             knowledge::search_knowledge,
             knowledge::get_knowledge_graph,

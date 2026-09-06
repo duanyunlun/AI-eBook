@@ -109,7 +109,7 @@ export const saveReadingPage = (bookId: string, page: number): Promise<void> =>
   invoke("save_reading_page", { bookId, page });
 
 export const saveKnowledge = (request: SaveKnowledgeRequest): Promise<KnowledgeItem> =>
-  invoke("save_knowledge_item", { request });
+  invoke<KnowledgeItem>("save_knowledge_item", { request }).then((item) => { window.dispatchEvent(new Event("knowledge-changed")); return item; });
 export const updateKnowledge = (request: {
   id: string;
   kind: KnowledgeItem["kind"];
@@ -117,9 +117,9 @@ export const updateKnowledge = (request: {
   category?: string;
   title?: string;
   bodyMd: string;
-}): Promise<KnowledgeItem> => invoke("update_knowledge_item", { request });
+}): Promise<KnowledgeItem> => invoke<KnowledgeItem>("update_knowledge_item", { request }).then((item) => { window.dispatchEvent(new Event("knowledge-changed")); return item; });
 export const deleteKnowledge = (id: string): Promise<void> =>
-  invoke("delete_knowledge_item", { id });
+  invoke<void>("delete_knowledge_item", { id }).then(() => { window.dispatchEvent(new Event("knowledge-changed")); });
 export const listKnowledge = (bookId?: string): Promise<KnowledgeItem[]> =>
   invoke("list_knowledge", { bookId });
 export const listKnowledgeBooks = (): Promise<Array<{ id: string; title: string }>> =>

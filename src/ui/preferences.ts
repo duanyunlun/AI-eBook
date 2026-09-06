@@ -12,6 +12,7 @@ export type ShortcutId =
   | "openSettings"
   | "think"
   | "record"
+  | "annotate"
   | "translate"
   | "explain"
   | "capture"
@@ -36,6 +37,7 @@ const definitions: ShortcutDefinition[] = [
   { id: "openSettings", label: "打开设置", group: "导航", shortcut: "Mod+," },
   { id: "think", label: "思考所选内容", group: "阅读动作", shortcut: "A" },
   { id: "record", label: "记录所选内容", group: "阅读动作", shortcut: "D" },
+  { id: "annotate", label: "添加批注 / 显示隐藏批注栏", group: "阅读动作", shortcut: "N" },
   { id: "translate", label: "翻译所选内容", group: "阅读动作", shortcut: "T" },
   { id: "explain", label: "解释所选内容", group: "阅读动作", shortcut: "E" },
   { id: "capture", label: "截取页面区域", group: "阅读动作", shortcut: "S" },

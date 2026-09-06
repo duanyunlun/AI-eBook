@@ -50,6 +50,7 @@ export function setupDrawers(elements: DrawerElements): DrawerController {
     setAnnotationOpen(false);
   };
   const annotationLocked = (): boolean =>
+    (elements.annotationDrawer.dataset.mode === "annotation" && elements.annotationDrawer.dataset.pinned === "true") ||
     elements.annotationDrawer.getAttribute("aria-busy") === "true" ||
     elements.annotationDrawer.contains(document.activeElement) ||
     Boolean(elements.annotationDrawer.querySelector('[data-note-dirty="true"]')) ||
@@ -102,7 +103,12 @@ export function setupDrawers(elements: DrawerElements): DrawerController {
   elements.annotationToggle.addEventListener("pointerleave", closeAnnotationSoon);
   elements.annotationDrawer.addEventListener("pointerenter", () => window.clearTimeout(annotationTimer));
   elements.annotationDrawer.addEventListener("pointerleave", closeAnnotationSoon);
-  elements.reader.addEventListener("pointerdown", closeAll);
+  elements.reader.addEventListener("pointerdown", (event) => {
+    if ((event.target as Element).closest(".margin-note-mark, .margin-note-highlight")) return;
+    clearTimers();
+    setLeftOpen(false);
+    if (!annotationLocked()) setAnnotationOpen(false);
+  });
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeAll();
   });
