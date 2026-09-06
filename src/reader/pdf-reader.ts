@@ -1,5 +1,6 @@
 import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { readPdfText } from "./pdf-text";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, PDFPageProxy, PageViewport, RenderTask, TextLayer } from "pdfjs-dist";
 import { bookUrl, saveReadingPage, type BookRecord, type ReadingContext } from "../api";
 import { clampPage, clampScale, parseBase64DataUrl, parseTextChapters, type TextChapter } from "../reader-state";
@@ -514,8 +515,7 @@ export function setupPdfReader(
     const source = documentProxy;
     let text = textChapters[page - 1]?.body || "";
     if (source) {
-      const content = await (await source.getPage(page)).getTextContent();
-      text = content.items.map((item) => "str" in item ? `${item.str}${item.hasEOL ? "\n" : " "}` : "").join("").trim();
+      text = await readPdfText(await source.getPage(page));
     }
     if (book?.id !== bookId || documentProxy !== source) throw new Error("读取过程中书籍已切换");
     return { page, text: text.slice(0, maxChars), truncated: text.length > maxChars };
@@ -549,13 +549,7 @@ export function setupPdfReader(
     let text = "";
     try {
       const page = await documentProxy.getPage(pageNumber);
-      const content = await page.getTextContent();
-      text = content.items
-        .map((item) => ("str" in item ? `${item.str}${item.hasEOL ? "\n" : " "}` : ""))
-        .join("")
-        .replace(/[ \t]+/g, " ")
-        .replace(/ *\n */g, "\n")
-        .trim();
+      text = await readPdfText(page);
     } catch {
       // 损坏或扫描型 PDF 的文本层失败时，继续使用已渲染页面图像。
     }
