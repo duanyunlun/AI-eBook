@@ -1,0 +1,6 @@
+{
+  "app": {
+    "windows": [{ "label": "main", "title": "AI-eBook" }]
+  },
+  "bundle": { "android": { "minSdkVersion": 26 } }
+}

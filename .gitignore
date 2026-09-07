@@ -4,3 +4,6 @@
 /examples/
 /node_modules/
 /src-tauri/target/
+/src-tauri/runtime/
+/.build-cache/
+/src-tauri/gen/android/

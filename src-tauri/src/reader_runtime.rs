@@ -134,6 +134,7 @@ fn install_files(
 }
 
 #[tauri::command]
+#[cfg(desktop)]
 pub async fn import_reader_plugin(app: AppHandle) -> Result<Option<ReaderRuntimeStatus>, String> {
     let Some(folder) = rfd::AsyncFileDialog::new()
         .set_title("选择可信的阅读器插件目录")
@@ -171,6 +172,12 @@ pub async fn import_reader_plugin(app: AppHandle) -> Result<Option<ReaderRuntime
     fs::write(home.join("active-plugin.json"), pointer.to_string())
         .map_err(|error| error.to_string())?;
     get_reader_runtime_status(app).map(Some)
+}
+
+#[cfg(mobile)]
+#[tauri::command]
+pub async fn import_reader_plugin() -> Result<Option<ReaderRuntimeStatus>, String> {
+    Err(crate::MOBILE_AI_UNAVAILABLE.into())
 }
 
 #[tauri::command]
@@ -246,7 +253,10 @@ pub(crate) async fn generate(
         r#"{"private":true,"dsh":{"profile":{"bundles":[],"patchReload":"startup"}}}"#,
     )
     .map_err(|error| error.to_string())?;
-    let mut child = Command::new(dsh::executable_path("node"))
+    let mut command = Command::new(dsh::node_path(app)?);
+    #[cfg(windows)]
+    command.creation_flags(0x08000000);
+    let mut child = command
         .arg(runtime.join("node_modules/@deepseek-ai/dsh/lib/bin.js"))
         .args(["--profile", "reader", "--patch"])
         .arg(plugin.join("cordis.patch.yml"))

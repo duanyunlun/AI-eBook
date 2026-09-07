@@ -2624,7 +2624,29 @@ body.is-resizing-question * {
   text-align: right;
 }
 
+.mobile-close { display: none; }
 @media (max-width: 700px) {
+  .mobile-close { display: inline-grid; flex: none; }
+  #left-drawer-close { align-self: flex-end; }
+  .annotation-drawer, .knowledge-detail-drawer { width: 100% !important; }
+  .settings-panel { left: 0; width: 100%; z-index: 40; }
+  .annotation-resizer, .knowledge-detail-resizer { display: none; }
+  .page-stage { padding: 60px 12px 80px; }
+  .text-page { width: calc(100vw - 24px); padding: 24px 20px 40px; }
+  .drawer-trigger { top: 8px; bottom: auto; width: 44px; height: 44px; background: var(--surface-raised); color: var(--text); border: 1px solid var(--border); border-radius: 6px; }
+  .left-drawer-trigger { left: 8px; }
+  .left-drawer-trigger::after { content: "☰"; }
+  .annotation-trigger { right: 8px; }
+  .annotation-trigger::after { content: "▤"; }
+  .reader-controls, .chapter-toggle { opacity: 1; pointer-events: auto; transform: none; }
+  .reader-controls { gap: 8px; padding-inline: 8px; max-width: calc(100vw - 16px); }
+  .collection-header { padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
+  .collection-header h1 { font-size: 17px; }
+  .library-list { width: calc(100% - 24px); }
+  .knowledge-left-drawer { width: 100%; grid-template-columns: minmax(100px, 1fr) minmax(160px, 1.5fr); }
+  .record-actions { flex-wrap: wrap; }
+  .companion-header { padding-inline: 10px; gap: 8px; }
+  .companion-body { padding-inline: 12px; }
   .settings-inner {
     padding-inline: 18px;
   }

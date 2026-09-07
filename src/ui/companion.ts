@@ -897,6 +897,20 @@ export function setupCompanion(
   document.addEventListener("pointerdown", (event) => {
     if (!elements.selectionActions.contains(event.target as Node)) hideSelectionActions();
   });
+  let touchSelectionTimer = 0;
+  document.addEventListener("selectionchange", () => {
+    if (!window.matchMedia("(pointer: coarse)").matches) return;
+    window.clearTimeout(touchSelectionTimer);
+    touchSelectionTimer = window.setTimeout(() => {
+      const selection = window.getSelection();
+      if (!selection?.rangeCount || selection.isCollapsed) return;
+      const range = selection.getRangeAt(0);
+      const target = range.startContainer.parentElement;
+      if (!target?.closest(".reader-page")) return;
+      const rect = range.getBoundingClientRect();
+      target.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: rect.left, clientY: rect.bottom + 8 }));
+    }, 350);
+  });
   const openThought = (): void => {
     hideSelectionActions();
     openDrawer();

@@ -1,0 +1,107 @@
+name: Cross-platform Release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing prerelease tag
+        required: true
+        type: string
+permissions:
+  contents: write
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: aarch64-apple-darwin
+            arch: arm64
+            bundles: dmg
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            arch: x64
+            bundles: dmg
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            arch: x64
+            bundles: nsis
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            arch: x64
+            bundles: deb,appimage
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev librsvg2-dev patchelf libssl-dev libayatana-appindicator3-dev
+      - run: npm ci
+      - run: npm test
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+      - run: node scripts/prepare-node.mjs ${{ matrix.arch }}
+      - name: Build and upload
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NO_STRIP: true
+        with:
+          tagName: ${{ inputs.tag }}
+          releaseDraft: false
+          prerelease: true
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --config src-tauri/tauri.desktop.conf.json
+  android:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: android
+      - run: sdkmanager 'ndk;27.2.12479018' 'platforms;android-35' 'build-tools;35.0.0'
+      - run: npm ci
+      - name: Generate Android project
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
+        run: |
+          npm run tauri -- android init --ci --skip-targets-install
+          cp src-tauri/android/BookPickerPlugin.kt src-tauri/gen/android/app/src/main/java/app/aiebook/reader/BookPickerPlugin.kt
+      - name: Build test APK
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
+        run: npm run tauri -- android build --debug --apk --target aarch64 --ci
+      - name: Upload test APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' -exec cp {} AI-eBook-Android-arm64-preview.apk \;
+          gh release upload "$RELEASE_TAG" AI-eBook-Android-arm64-preview.apk --clobber

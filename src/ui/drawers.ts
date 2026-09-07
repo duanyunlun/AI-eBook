@@ -58,6 +58,7 @@ export function setupDrawers(elements: DrawerElements): DrawerController {
       (input) => input.value.trim(),
     );
   const openLeftSoon = (): void => {
+    if (window.matchMedia("(hover: none)").matches) return;
     window.clearTimeout(leftTimer);
     leftTimer = window.setTimeout(() => {
       setAnnotationOpen(false);
@@ -65,6 +66,7 @@ export function setupDrawers(elements: DrawerElements): DrawerController {
     }, 150);
   };
   const openAnnotationSoon = (): void => {
+    if (window.matchMedia("(hover: none)").matches) return;
     window.clearTimeout(annotationTimer);
     annotationTimer = window.setTimeout(() => {
       setLeftOpen(false);
@@ -72,18 +74,22 @@ export function setupDrawers(elements: DrawerElements): DrawerController {
     }, 150);
   };
   const closeLeftSoon = (): void => {
+    if (window.matchMedia("(hover: none)").matches) return;
     window.clearTimeout(leftTimer);
     leftTimer = window.setTimeout(() => {
       if (elements.settingsPanel.getAttribute("aria-hidden") === "true") setLeftOpen(false);
     }, 300);
   };
   const closeAnnotationSoon = (): void => {
+    if (window.matchMedia("(hover: none)").matches) return;
     window.clearTimeout(annotationTimer);
     annotationTimer = window.setTimeout(() => {
       if (!annotationLocked()) setAnnotationOpen(false);
     }, 300);
   };
 
+  document.getElementById("left-drawer-close")?.addEventListener("click", () => setLeftOpen(false));
+  document.getElementById("annotation-close")?.addEventListener("click", () => setAnnotationOpen(false));
   elements.leftDrawerToggle.addEventListener("click", () => {
     clearTimers();
     setAnnotationOpen(false);

@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+#[cfg(desktop)]
 use rfd::AsyncFileDialog;
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager, State};
@@ -16,6 +17,7 @@ pub async fn import_book(
     app: AppHandle,
     store: State<'_, KnowledgeStore>,
 ) -> Result<Option<BookRecord>, String> {
+    #[cfg(desktop)]
     let Some(handle) = AsyncFileDialog::new()
         .add_filter("电子书", &["pdf", "txt", "md", "markdown"])
         .pick_file()
@@ -23,15 +25,38 @@ pub async fn import_book(
     else {
         return Ok(None);
     };
+    #[cfg(desktop)]
     let source = handle.path().to_path_buf();
+    #[cfg(target_os = "android")]
+    let Some(picked) = crate::mobile::pick_book(app.clone()).await? else {
+        return Ok(None);
+    };
+    #[cfg(target_os = "android")]
+    let source = picked.path.clone();
     let library_dir = app
         .path()
         .app_data_dir()
         .map_err(|error| error.to_string())?
         .join("library");
-    let imported = tauri::async_runtime::spawn_blocking(move || ingest(&source, &library_dir))
-        .await
-        .map_err(|error| error.to_string())??;
+    let imported = tauri::async_runtime::spawn_blocking(move || {
+        let result = ingest(&source, &library_dir);
+        #[cfg(target_os = "android")]
+        let result = {
+            let _ = fs::remove_file(&source);
+            result.map(|mut imported| {
+                imported.original_name = picked.name.clone();
+                imported.title = Path::new(&picked.name)
+                    .file_stem()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("导入书籍")
+                    .into();
+                imported
+            })
+        };
+        result
+    })
+    .await
+    .map_err(|error| error.to_string())??;
     let book = store
         .import_book(
             &imported.title,

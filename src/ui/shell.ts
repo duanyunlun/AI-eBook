@@ -172,6 +172,7 @@ export function mountShell(app: HTMLElement): ShellElements {
         </div>
 
         <aside class="left-drawer drawer" id="left-drawer" aria-label="主菜单" aria-hidden="true">
+          <button class="icon-command mobile-close" id="left-drawer-close" type="button" aria-label="关闭主菜单">×</button>
           <nav class="drawer-menu">
             <button class="drawer-command" id="open-book" type="button"><span aria-hidden="true">＋</span>打开</button>
             <button class="drawer-command" id="open-chapters" type="button"><span aria-hidden="true">☷</span>目录</button>
@@ -193,6 +194,7 @@ export function mountShell(app: HTMLElement): ShellElements {
               <button id="margin-note-mode" type="button" role="tab" aria-selected="false">批注</button>
             </div>
             <div class="companion-header-actions">
+              <button class="icon-command mobile-close" id="annotation-close" type="button" aria-label="关闭侧栏">×</button>
               <button class="icon-command" id="pin-margin-notes" type="button" aria-label="固定批注侧栏" title="固定批注侧栏" aria-pressed="false" hidden>⌖</button>
               <button class="clear-conversation" id="clear-conversation" type="button" title="开始新对话，保留历史记录">新对话</button>
               <button class="icon-command capture-page" id="capture-page" type="button" aria-label="截取当前页" title="截取当前页">▣</button>

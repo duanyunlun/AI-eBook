@@ -1,4 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 import type { BookRecord } from "./api";
 import { setupPdfReader } from "./reader/pdf-reader";
 import { setupAnnotationResize, setupKnowledgeResize, setupQuestionResize } from "./ui/annotation-resize";
@@ -126,7 +127,25 @@ window.addEventListener("keydown", (event) => {
 });
 let closing = false;
 let allowClose = false;
-void getCurrentWindow().onCloseRequested(async (event) => {
+const platform = invoke<{ mobile: boolean; aiAvailable: boolean }>("platform_info");
+void platform.then(({ mobile, aiAvailable }) => {
+  document.documentElement.classList.toggle("platform-mobile", mobile);
+  if (mobile) {
+    elements.exitApp.hidden = true;
+    elements.chooseVault.disabled = true;
+    elements.chooseVault.title = "移动端使用应用私有目录";
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") void reader.flush().catch(showError);
+    });
+  }
+  if (!aiAvailable) {
+    const notice = document.createElement("p");
+    notice.textContent = "Android 预览版尚未集成 DSH，AI 暂不可用。";
+    notice.className = "settings-status";
+    document.getElementById("ai-settings-form")?.before(notice);
+    document.querySelectorAll<HTMLInputElement | HTMLButtonElement>("#ai-settings-form input, #ai-settings-form select, #ai-settings-form button, #dsh-update, #reader-plugin-import, #reader-plugin-restore, #summarize-notes, #question-input, #selection-think, #selection-translate, #selection-explain").forEach(control => { control.disabled = true; });
+  }
+  if (!mobile) return getCurrentWindow().onCloseRequested(async (event) => {
   if (allowClose) {
     reader.destroy();
     return;
@@ -147,6 +166,7 @@ void getCurrentWindow().onCloseRequested(async (event) => {
     elements.loading.hidden = true;
     showError(new Error(`关闭前保存失败：${error instanceof Error ? error.message : String(error)}`));
   }
-});
+  });
+}).catch(showError);
 
 void library.initialize().catch(showError);

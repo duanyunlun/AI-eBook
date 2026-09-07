@@ -455,7 +455,7 @@ export function setupPdfReader(
       pageWidth = viewport.width;
       pageHeight = viewport.height;
       currentPage = clampPage(nextBook.lastPage, documentProxy.numPages);
-      scale = 1;
+      scale = window.innerWidth <= 700 ? Math.max(0.2, Math.min(1, (window.innerWidth - 24) / pageWidth)) : 1;
       elements.emptyState.hidden = true;
       elements.pageStage.hidden = false;
       buildPages(documentProxy.numPages);

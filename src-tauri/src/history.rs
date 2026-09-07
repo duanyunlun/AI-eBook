@@ -4,6 +4,7 @@ use std::{
 };
 
 use git2::{Repository, Signature};
+#[cfg(desktop)]
 use rfd::AsyncFileDialog;
 use tauri::{AppHandle, Manager, State};
 
@@ -22,6 +23,7 @@ pub fn get_vault_path(app: AppHandle, store: State<'_, KnowledgeStore>) -> Resul
 }
 
 #[tauri::command]
+#[cfg(desktop)]
 pub async fn choose_vault(
     app: AppHandle,
     store: State<'_, KnowledgeStore>,
@@ -39,6 +41,12 @@ pub async fn choose_vault(
         .map_err(|error| error.to_string())?;
     let _ = app;
     Ok(Some(path.to_string_lossy().into_owned()))
+}
+
+#[cfg(mobile)]
+#[tauri::command]
+pub async fn choose_vault() -> Result<Option<String>, String> {
+    Err("移动端知识库保存在应用私有目录，暂不支持更换目录".into())
 }
 
 pub fn archive_book(

@@ -4,16 +4,17 @@ version = "0.1.0"
 description = "AI 伴读与个人阅读知识库"
 edition = "2024"
 
+[lib]
+name = "ai_ebook_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
 base64 = "0.22"
-fontdb = "0.24"
 futures-util = "0.3"
-git2 = "0.21"
-keyring = "4.2"
-rfd = "0.17.2"
+git2 = { version = "0.21", default-features = false }
 rusqlite = { version = "0.40.2", default-features = false, features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -24,3 +25,8 @@ thiserror = "2"
 uuid = { version = "1.26", features = ["v7"] }
 url = "2"
 zeroize = "1"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+fontdb = "0.24"
+keyring = "4.2"
+rfd = "0.17.2"

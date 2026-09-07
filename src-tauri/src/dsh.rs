@@ -50,8 +50,62 @@ pub(crate) fn executable_path(name: &str) -> PathBuf {
     .unwrap_or_else(|| PathBuf::from(name))
 }
 
-fn npm_command() -> Command {
-    let mut command = Command::new(executable_path("npm"));
+pub(crate) fn node_path(app: &AppHandle) -> Result<PathBuf, String> {
+    if cfg!(mobile) {
+        return Err(crate::MOBILE_AI_UNAVAILABLE.into());
+    }
+    let bundled = app
+        .path()
+        .resource_dir()
+        .map_err(|error| error.to_string())?
+        .join("runtime")
+        .join(if cfg!(windows) { "node.exe" } else { "node" });
+    if bundled.is_file() {
+        return Ok(bundled);
+    }
+    if cfg!(debug_assertions) {
+        return Ok(executable_path("node"));
+    }
+    Err("安装包缺少私有 Node 运行时，请重新下载完整安装包".into())
+}
+
+fn npm_command(app: &AppHandle) -> Result<Command, String> {
+    let node = node_path(app)?;
+    let npm = node
+        .parent()
+        .unwrap_or(std::path::Path::new("."))
+        .join("npm/bin/npm-cli.js");
+    let mut command = if npm.is_file() {
+        let mut command = Command::new(&node);
+        command.arg(npm);
+        command
+    } else if cfg!(debug_assertions) {
+        Command::new(executable_path(if cfg!(windows) {
+            "npm.cmd"
+        } else {
+            "npm"
+        }))
+    } else {
+        return Err("安装包缺少私有 npm".into());
+    };
+    if let Some(parent) = node
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        let mut paths = vec![parent.to_path_buf()];
+        paths.extend(std::env::split_paths(
+            &std::env::var_os("PATH").unwrap_or_default(),
+        ));
+        command.env(
+            "PATH",
+            std::env::join_paths(paths).map_err(|_| "Node 路径无效")?,
+        );
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000);
+    }
     for key in [
         "HTTP_PROXY",
         "HTTPS_PROXY",
@@ -62,7 +116,7 @@ fn npm_command() -> Command {
     ] {
         command.env_remove(key);
     }
-    command
+    Ok(command)
 }
 
 fn validated_registry(value: &str) -> Result<String, String> {
@@ -93,7 +147,7 @@ fn update_managed_dsh(app: &AppHandle, registry: &str) -> Result<DshStatus, Stri
     let registry = validated_registry(registry)?;
     let root = runtime_root(&app)?;
     fs::create_dir_all(&root).map_err(|error| error.to_string())?;
-    let output = npm_command()
+    let output = npm_command(app)?
         .args([
             "install",
             "--no-audit",
@@ -123,7 +177,7 @@ fn update_managed_dsh(app: &AppHandle, registry: &str) -> Result<DshStatus, Stri
 fn check_managed_dsh(app: &AppHandle, registry: &str) -> Result<DshUpdateStatus, String> {
     let registry = validated_registry(registry)?;
     let current = get_dsh_status(app.clone())?;
-    let output = npm_command()
+    let output = npm_command(app)?
         .args([
             "view",
             DSH_PACKAGE,
@@ -133,6 +187,8 @@ fn check_managed_dsh(app: &AppHandle, registry: &str) -> Result<DshUpdateStatus,
             "--proxy=false",
             "--https-proxy=false",
         ])
+        .arg("--cache")
+        .arg(runtime_root(app)?.join("npm-cache"))
         .output()
         .map_err(|error| format!("无法启动 npm：{error}"))?;
     if !output.status.success() {
