@@ -39,9 +39,16 @@ conditions = "          'conditions': [\n"
 assert conditions in target
 target = target.replace(conditions, conditions + "            ['OS==\"android\" and _toolset==\"target\"', {'sources': ['<(ZLIB_ROOT)/android_cpu_features.c']}],\n", 1)
 source.write_text(prefix + marker + target)
+source = Path('tools/v8_gypfiles/v8.gyp')
+content = source.read_text()
+for systems in ('linux mac ios freebsd openharmony', 'linux mac ios openharmony', 'linux mac openharmony', 'linux mac win openharmony'):
+    condition = f'OS in "{systems}"'
+    assert condition in content
+    content = content.replace(condition, f'(_toolset=="host" or {condition})')
+source.write_text(content)
 PY
 ./configure --dest-cpu="$arch" --dest-os=android --openssl-no-asm --cross-compiling --partly-static --without-node-snapshot
-make -j2 > "$source_root/build.log" 2>&1 || { tail -80 "$source_root/build.log" | cut -c1-1000; exit 1; }
+make -C out BUILDTYPE=Release -j2 node > "$source_root/build.log" 2>&1 || { tail -80 "$source_root/build.log" | cut -c1-1000; exit 1; }
 cp out/Release/node "$root/libnode_runtime.so"
 "$toolchain/bin/llvm-strip" "$root/libnode_runtime.so"
 "$toolchain/bin/llvm-readelf" -h -l "$root/libnode_runtime.so"
