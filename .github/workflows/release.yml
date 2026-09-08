@@ -81,6 +81,8 @@ jobs:
   android_node:
     if: ${{ inputs.android_artifact_run_id == '' }}
     uses: ./.github/workflows/node-android.yml
+    with:
+      ref: ${{ inputs.tag }}
   android:
     needs: android_node
     if: ${{ inputs.android_artifact_run_id == '' }}

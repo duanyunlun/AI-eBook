@@ -31,6 +31,8 @@ Android 从官方 Node 24.20.0 源码交叉编译 arm64/x64 运行时，使用 A
 
 `.github/workflows/release.yml` 由 `workflow_dispatch` 触发，输入已经存在的预发布标签。各平台从同一标签构建，独立上传安装包到该 Release，单个任务失败不取消其他平台。Android 项目由 Tauri CLI 初始化，并加入 `src-tauri/android/BookPickerPlugin.kt`，不提交本机 SDK 路径或生成目录。Android 编译和模拟器验收使用独立构建机，避免磁盘不足；`android_only` 可单独重试移动端，`android_artifact_run_id` 可复用同一标签的已有 APK 产物。验收脚本使用本次工作流版本，应用仍来自指定标签。
 
+设置 `validation_only=true` 时仅构建验收，不上传 Release，可使用分支或提交作为 `tag`。正式预览包先上传为草稿，待各平台检查完成后再发布；Android Node 源码构建脚本也从指定标签检出。
+
 桌面本地复现：
 
 ```sh
