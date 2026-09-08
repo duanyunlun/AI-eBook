@@ -87,7 +87,7 @@ fn npm_command(app: &AppHandle) -> Result<Command, String> {
         let mut command = Command::new(&node);
         command.arg(npm);
         command
-    } else if cfg!(debug_assertions) {
+    } else if cfg!(all(debug_assertions, not(target_os = "android"))) {
         Command::new(executable_path(if cfg!(windows) {
             "npm.cmd"
         } else {
