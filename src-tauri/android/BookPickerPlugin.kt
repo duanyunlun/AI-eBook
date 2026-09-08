@@ -16,6 +16,7 @@ import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 import java.io.File
+import java.io.FileNotFoundException
 import java.util.Locale
 import java.util.UUID
 import java.security.KeyStore
@@ -102,10 +103,9 @@ class BookPickerPlugin(private val activity: Activity) : Plugin(activity) {
                     try { output.write(encrypted); file.finishWrite(output) }
                     catch (failure: Exception) { file.failWrite(output); throw failure }
                     JSObject()
-                } else if (!file.baseFile.exists()) {
-                    JSObject().put("secret", "")
                 } else {
-                    val encrypted = file.readFully()
+                    val encrypted = try { file.readFully() }
+                    catch (missing: FileNotFoundException) { return@synchronized JSObject().put("secret", "") }
                     require(encrypted.size in 29..65536)
                     val cipher = Cipher.getInstance("AES/GCM/NoPadding")
                     cipher.init(Cipher.DECRYPT_MODE, credentialKey(), GCMParameterSpec(128, encrypted.copyOfRange(0, 12)))
