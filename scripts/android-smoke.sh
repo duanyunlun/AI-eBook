@@ -4,6 +4,7 @@ mkdir -p .build-cache/android-smoke
 trap 'adb exec-out screencap -p > .build-cache/android-smoke/startup.png; adb logcat -d > .build-cache/android-smoke/logcat.txt' EXIT
 apk=$(find src-tauri/gen/android/app/build/outputs/apk -name '*x86_64*.apk' -print -quit)
 test -n "$apk"
+sleep 45
 adb install -r "$apk"
 adb logcat -c
 adb shell am start -W -n app.aiebook.reader/.MainActivity
@@ -21,7 +22,7 @@ if ! grep -q 'android.webkit.WebView' .build-cache/android-smoke/startup.xml; th
   echo 'Android 首屏未加载 WebView'
   exit 1
 fi
-if grep -Eq 'FATAL EXCEPTION|panicked at' .build-cache/android-smoke/logcat.txt; then
+if grep -Eq 'FATAL EXCEPTION|panicked at|ANR in app.aiebook.reader' .build-cache/android-smoke/logcat.txt; then
   echo 'Android 启动出现异常'
   exit 1
 fi
