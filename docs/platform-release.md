@@ -85,6 +85,8 @@ npm run tauri -- build --config src-tauri/tauri.desktop.conf.json
 
 ## 触屏交互更新验证
 
+伴读顶部三个页签等宽，切换思考、记录、批注时保留操作区占位；截图与固定批注按钮共用同一个 30px 方形位置，图标使用居中 SVG。此布局由桌面与移动端共用。
+
 运行 `PATH="$PWD/.build-cache/android-sdk/platform-tools:$PATH" node scripts/android-touch-test.mjs`，在已启动的 Android 调试版上验证点击浮层、右滑主菜单、左滑伴读栏、禁区示意、纵向滚动、长按、双指触摸、系统取消触摸、设置持久化及原生返回键。历史弹层使用测试内容，不依赖真实书籍。无开孔模拟器增加 `ANDROID_NO_CUTOUT=1` 检查隐藏状态栏确实增加可用高度。桌面平台隔离与快捷键使用 `src/platform-ui.test.html`，批注未保存返回使用 `src/margin-notes-ui.test.html` 验证。
 
 Android 15 arm64 模拟器无开孔模式下，可用高度为 867 → 891 → 867 CSS px；有开孔时保留开孔安全区，隐藏时不强制把按钮放到开孔下。手机厂商的返回手势与长按选区体验仍需真机验证。

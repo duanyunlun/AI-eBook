@@ -195,9 +195,11 @@ export function mountShell(app: HTMLElement): ShellElements {
             </div>
             <div class="companion-header-actions">
               <button class="icon-command drawer-close" id="annotation-close" type="button" aria-label="关闭侧栏">×</button>
-              <button class="icon-command" id="pin-margin-notes" type="button" aria-label="固定批注侧栏" title="固定批注侧栏" aria-pressed="false" hidden>⌖</button>
               <button class="clear-conversation" id="clear-conversation" type="button" title="开始新对话，保留历史记录">新对话</button>
-              <button class="icon-command capture-page" id="capture-page" type="button" aria-label="截取当前页" title="截取当前页">▣</button>
+              <span class="companion-icon-slot">
+                <button class="icon-command" id="pin-margin-notes" type="button" aria-label="固定批注侧栏" title="固定批注侧栏" aria-pressed="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 2v20M2 12h20"/></svg></button>
+                <button class="icon-command capture-page" id="capture-page" type="button" aria-label="截取当前页" title="截取当前页"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16"/><rect x="8" y="8" width="8" height="8"/></svg></button>
+              </span>
             </div>
           </header>
           <div class="companion-body">

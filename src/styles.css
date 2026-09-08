@@ -570,10 +570,29 @@ button:disabled {
   box-shadow: 0 0 0 1px var(--border-strong);
 }
 
-.capture-page {
+.companion-icon-slot,
+.companion-icon-slot .icon-command {
   width: 30px;
   height: 30px;
-  font-size: calc(15px * var(--ui-font-scale));
+  flex: none;
+}
+
+.companion-icon-slot { display: grid; }
+.companion-icon-slot .icon-command { grid-area: 1 / 1; }
+.companion-icon-slot svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+#clear-conversation { flex: none; white-space: nowrap; }
+#clear-conversation[hidden] {
+  display: block !important;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .companion-header-actions {
