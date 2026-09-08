@@ -17,6 +17,11 @@ jobs:
         with:
           path: .build-cache/android-node/${{ matrix.arch }}
           key: android-node-${{ matrix.arch }}-${{ hashFiles('scripts/build-android-node.sh') }}
+      - uses: actions/setup-java@v4
+        if: steps.runtime.outputs.cache-hit != 'true'
+        with:
+          distribution: temurin
+          java-version: 17
       - uses: android-actions/setup-android@v3
         if: steps.runtime.outputs.cache-hit != 'true'
       - if: steps.runtime.outputs.cache-hit != 'true'
