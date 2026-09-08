@@ -104,7 +104,7 @@ try {
   assert.equal(adb('shell', 'run-as', 'app.aiebook.reader', 'cat', `no_backup/credentials/${credentialFile}`).includes('android-test-only'), false);
   adb('shell', 'run-as', 'app.aiebook.reader', 'mv', `no_backup/credentials/${credentialFile}`, `no_backup/credentials/${credentialFile}.bak`);
   assert.equal(await invoke('has_ai_api_key', { provider }), true);
-  const registry = 'https://registry.npmjs.org/';
+  const registry = process.env.AI_EBOOK_TEST_REGISTRY || 'https://registry.npmjs.org/';
   const available = await invoke('check_dsh_update', { registry });
   assert.ok(available.latestVersion);
   const installed = await invoke('update_dsh', { registry });

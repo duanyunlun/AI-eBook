@@ -39,6 +39,16 @@ Android 本机单架构调试时，将对应 Node 构建产物放入 `.build-cac
 
 Apple Silicon 本机也可设置 `NDK_HOME` 后运行 `AI_EBOOK_NODE_JOBS=10 bash scripts/build-android-node.sh arm64`，产物位于 `.build-cache/android-node/arm64`。脚本使用 Xcode 宿主工具、NDK Android 编译器，并修正上游 GYP 对宿主系统的判断；只构建 Node，不构建上游 C++ 测试程序。将产物复制到上一段指定目录后构建 APK。Android 本机验收通过时，可使用 `desktop_only=true` 单独构建桌面安装包，再将同一提交的已验证 APK 上传到草稿 Release；此选项本身不代表 Android 验收通过。
 
+国内网络下载缓慢时，使用项目内 Gradle 缓存和阿里云镜像，不改系统全局配置：
+
+```sh
+export GRADLE_USER_HOME="$PWD/.build-cache/gradle"
+mkdir -p "$GRADLE_USER_HOME/init.d"
+cp scripts/gradle-mirrors.gradle "$GRADLE_USER_HOME/init.d/mirrors.gradle"
+```
+
+镜像规则覆盖 Google Maven、Maven Central 与 Gradle Plugin Portal，包括 `buildSrc`；配置依据为[阿里云镜像说明](https://help.aliyun.com/zh/document_detail/436767.html)。本机有 HTTP 代理时，应让 `*.aliyun.com` 直接连接。单架构 APK 使用 `python3 scripts/check-android-apks.py arm64` 检查；连接对应模拟器后，设置 `ANDROID_TEST_APK` 为安装包路径、`AI_EBOOK_TEST_REGISTRY=https://registry.npmmirror.com/`，执行 `bash scripts/android-smoke.sh`。
+
 桌面本地复现：
 
 ```sh

@@ -1,0 +1,32 @@
+def useMirror = { repository ->
+    if (repository instanceof org.gradle.api.artifacts.repositories.MavenArtifactRepository) {
+        def host = repository.url.host
+        if (host in ['dl.google.com', 'maven.google.com']) {
+            repository.url = uri('https://maven.aliyun.com/repository/google')
+        } else if (host in ['repo.maven.apache.org', 'repo1.maven.org']) {
+            repository.url = uri('https://maven.aliyun.com/repository/public')
+        } else if (host == 'plugins.gradle.org') {
+            repository.url = uri('https://maven.aliyun.com/repository/gradle-plugin')
+        }
+    }
+}
+gradle.beforeSettings { settings ->
+    settings.pluginManagement.repositories {
+        maven { url = uri('https://maven.aliyun.com/repository/gradle-plugin') }
+        maven { url = uri('https://maven.aliyun.com/repository/google') }
+        maven { url = uri('https://maven.aliyun.com/repository/public') }
+    }
+    settings.pluginManagement.repositories.all(useMirror)
+}
+allprojects {
+    buildscript.repositories {
+        maven { url = uri('https://maven.aliyun.com/repository/google') }
+        maven { url = uri('https://maven.aliyun.com/repository/public') }
+    }
+    repositories {
+        maven { url = uri('https://maven.aliyun.com/repository/google') }
+        maven { url = uri('https://maven.aliyun.com/repository/public') }
+    }
+    buildscript.repositories.all(useMirror)
+    repositories.all(useMirror)
+}

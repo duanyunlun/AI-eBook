@@ -2,10 +2,13 @@ from pathlib import Path
 import os
 import struct
 import subprocess
+import sys
 import zipfile
 
+assert len(sys.argv) <= 2 and (len(sys.argv) == 1 or sys.argv[1] in ('arm64', 'x64'))
+expected = {'arm64-v8a', 'x86_64'} if len(sys.argv) == 1 else {{'arm64': 'arm64-v8a', 'x64': 'x86_64'}[sys.argv[1]]}
 packages = list(Path('src-tauri/gen/android/app/build/outputs/apk').rglob('*.apk'))
-assert len(packages) >= 2, '缺少 Android 架构安装包'
+assert len(packages) >= len(expected), '缺少 Android 架构安装包'
 architectures = set()
 for package in packages:
     signer = Path(os.environ['ANDROID_HOME']) / 'build-tools/35.0.0/apksigner'
@@ -30,4 +33,4 @@ for package in packages:
             loads = [segment for segment in segments if segment[0] == 1]
             assert loads and all(segment[7] >= 16384 and (segment[3] - segment[2]) % 16384 == 0 for segment in loads), f'未按 16 KB 对齐：{name}'
         print(f'PASS {package.name}：固定签名、Node、阅读器架构与 16 KB ELF 对齐')
-assert architectures == {'arm64-v8a', 'x86_64'}
+assert architectures == expected

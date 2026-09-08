@@ -2,7 +2,7 @@
 set -euo pipefail
 mkdir -p .build-cache/android-smoke
 trap 'adb exec-out screencap -p > .build-cache/android-smoke/startup.png; adb logcat -d > .build-cache/android-smoke/logcat.txt' EXIT
-apk=$(find src-tauri/gen/android/app/build/outputs/apk -name '*x86_64*.apk' -print -quit)
+apk=${ANDROID_TEST_APK:-$(find src-tauri/gen/android/app/build/outputs/apk -name '*x86_64*.apk' -print -quit)}
 test -n "$apk"
 sleep 45
 adb install -r "$apk"
