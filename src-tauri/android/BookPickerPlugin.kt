@@ -1,6 +1,12 @@
 package app.aiebook.reader
 
 import android.app.Activity
+import android.webkit.WebView
+import android.view.View
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import android.content.Intent
 import android.provider.OpenableColumns
 import android.provider.DocumentsContract
@@ -27,6 +33,11 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 @InvokeArg
+class StatusBarArgs {
+    var hidden: Boolean = false
+}
+
+@InvokeArg
 class CredentialArgs {
     var account: String = ""
     var secret: String? = null
@@ -36,6 +47,37 @@ class CredentialArgs {
 class BookPickerPlugin(private val activity: Activity) : Plugin(activity) {
     private val runtimeLock = Any()
     private val credentialLock = Any()
+
+    private fun applyStatusBar(hidden: Boolean) {
+        val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (hidden) controller.hide(WindowInsetsCompat.Type.statusBars())
+        else controller.show(WindowInsetsCompat.Type.statusBars())
+    }
+
+    override fun load(webView: WebView) {
+        activity.runOnUiThread {
+            WindowCompat.setDecorFitsSystemWindows(activity.window, false)
+            val content = activity.findViewById<View>(android.R.id.content)
+            ViewCompat.setOnApplyWindowInsetsListener(content) { view, insets ->
+                val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime())
+                view.setPadding(safe.left, safe.top, safe.right, safe.bottom)
+                WindowInsetsCompat.CONSUMED
+            }
+            applyStatusBar(activity.getPreferences(0).getBoolean("hide-status-bar", false))
+            ViewCompat.requestApplyInsets(content)
+        }
+    }
+
+    @Command
+    fun statusBar(invoke: Invoke) {
+        val args = invoke.parseArgs(StatusBarArgs::class.java)
+        activity.runOnUiThread {
+            applyStatusBar(args.hidden)
+            activity.getPreferences(0).edit().putBoolean("hide-status-bar", args.hidden).apply()
+            invoke.resolve(JSObject())
+        }
+    }
 
     private fun background(invoke: Invoke, error: String, work: () -> JSObject) {
         Thread {

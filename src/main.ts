@@ -14,6 +14,7 @@ import { mountShell } from "./ui/shell";
 import { setupPreferences } from "./ui/preferences";
 import { setupTheme } from "./ui/theme";
 import { setupMarginNotes } from "./ui/margin-notes";
+import { setupTouchReader } from "./ui/touch-reader";
 import "./styles.css";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -26,6 +27,7 @@ const showError = (error: unknown): void => {
   elements.error.hidden = false;
 };
 const drawers = setupDrawers(elements);
+setupTouchReader(elements.reader, drawers);
 setupAnnotationResize(elements.annotationResizer);
 setupKnowledgeResize(elements.knowledgeDetailResizer);
 setupQuestionResize(elements.questionResizer, elements.questionInput);
@@ -130,6 +132,8 @@ let allowClose = false;
 const platform = invoke<{ mobile: boolean; aiAvailable: boolean }>("platform_info");
 void platform.then(({ mobile, aiAvailable }) => {
   document.documentElement.classList.toggle("platform-mobile", mobile);
+  document.getElementById("status-bar-setting")!.hidden = !mobile;
+  window.dispatchEvent(new Event("reader-platform-ready"));
   if (mobile) {
     elements.exitApp.hidden = true;
     elements.chooseVault.disabled = true;

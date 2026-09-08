@@ -270,6 +270,14 @@ export function mountShell(app: HTMLElement): ShellElements {
               <output class="shortcut-status" id="shortcut-status" aria-live="polite"></output>
             </section>
             <section class="settings-page" data-settings-page="appearance">
+              <section id="touch-settings" hidden>
+                <h2>触屏阅读</h2>
+                <div class="appearance-settings">
+                  <label id="status-bar-setting" hidden><span>隐藏系统状态栏</span><input id="hide-status-bar" type="checkbox" /></label>
+                  <label><span>两侧滑动禁区</span><span><input id="swipe-edge" type="range" min="24" max="120" step="4" value="32" /><output id="swipe-edge-value">32 px</output></span></label>
+                </div>
+                <p>点击阅读区域显示或隐藏上下控件；在中间区域左滑打开左侧栏，右滑打开右侧栏。边缘禁区不触发应用滑动，保留系统返回手势。</p>
+              </section>
               <h2>外观</h2>
               <div class="appearance-settings">
                 <label><span>浅色主题色</span><input id="light-accent" type="color" aria-label="浅色主题色" /></label>

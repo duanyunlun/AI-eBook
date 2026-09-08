@@ -8,6 +8,18 @@ use tauri::{
 
 struct BookPicker(PluginHandle<Wry>);
 
+pub async fn set_status_bar(app: AppHandle, hidden: bool) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<BookPicker>()
+            .0
+            .run_mobile_plugin::<serde_json::Value>("statusBar", json!({"hidden": hidden}))
+            .map(|_| ())
+            .map_err(|_| "无法设置系统状态栏".to_string())
+    })
+    .await
+    .map_err(|_| "状态栏设置任务失败".to_string())?
+}
+
 #[derive(Deserialize)]
 pub struct RuntimePaths {
     pub node: PathBuf,

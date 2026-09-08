@@ -2625,6 +2625,15 @@ body.is-resizing-question * {
 }
 
 .mobile-close { display: none; }
+.touch-reader:not(.reading-controls-visible) :is(.reader-header-zone, .reader-footer-zone, .drawer-trigger) {
+  visibility: hidden;
+  pointer-events: none;
+}
+.touch-reader.reading-controls-visible :is(.chapter-toggle, .reader-controls) {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
 @media (max-width: 700px), (hover: none) {
   .mobile-close { display: inline-grid; flex: none; }
   #left-drawer-close { align-self: flex-end; }
