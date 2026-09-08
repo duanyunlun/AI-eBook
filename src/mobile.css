@@ -1,3 +1,4 @@
+.platform-mobile .drawer-close { display: none; }
 .platform-mobile:not(.reading-controls-visible) :is(.reader-header-zone, .reader-footer-zone, .drawer-trigger) {
   visibility: hidden;
   pointer-events: none;

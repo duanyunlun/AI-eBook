@@ -10,7 +10,7 @@ export function setupTouchReader(reader: HTMLElement, drawers: DrawerController)
   const edgeValue = document.getElementById("swipe-edge-value")!;
   const hiddenInput = document.getElementById("hide-status-bar") as HTMLInputElement;
   let edge = swipeEdge(Number(localStorage.getItem("swipe-edge") ?? 32));
-  let start: { x: number; y: number; time: number; moved: number } | undefined;
+  let start: { x: number; y: number; time: number; moved: number; drawer?: "left" | "right" } | undefined;
   root.classList.add("touch-reader");
   settings.hidden = false;
   const preview = document.createElement("div");
@@ -68,7 +68,9 @@ export function setupTouchReader(reader: HTMLElement, drawers: DrawerController)
     const viewport = window.visualViewport;
     const visibleX = touch.clientX - (viewport?.offsetLeft ?? 0);
     if (visibleX < edge || visibleX > (viewport?.width ?? window.innerWidth) - edge) return;
-    start = { x: touch.clientX, y: touch.clientY, time: performance.now(), moved: 0 };
+    const drawer = document.getElementById("left-drawer")?.getAttribute("aria-hidden") === "false" ? "left"
+      : document.getElementById("annotation-drawer")?.getAttribute("aria-hidden") === "false" ? "right" : undefined;
+    start = { x: touch.clientX, y: touch.clientY, time: performance.now(), moved: 0, drawer };
   }, { passive: true });
   reader.addEventListener("touchmove", (event) => {
     if (!start) return;
@@ -89,6 +91,10 @@ export function setupTouchReader(reader: HTMLElement, drawers: DrawerController)
     if (!initial || event.touches.length || !event.changedTouches.length || window.getSelection()?.toString()) return;
     const touch = event.changedTouches[0];
     const action = readingGesture(touch.clientX - initial.x, touch.clientY - initial.y, performance.now() - initial.time);
+    if (initial.drawer) {
+      if ((action === "tap" && initial.moved < 10) || action === initial.drawer) drawers.closeAll();
+      return;
+    }
     if (action === "tap" && initial.moved < 10) root.classList.toggle("reading-controls-visible");
     if (action === "left" || action === "right") {
       root.classList.remove("reading-controls-visible");

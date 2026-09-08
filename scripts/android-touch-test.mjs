@@ -45,9 +45,15 @@ try {
   assert.equal(await visible(), false);
   await gesture(140, 260);
   assert.equal(await evaluate('document.querySelector("#left-drawer").getAttribute("aria-hidden")'), 'false');
-  await evaluate('document.querySelector("#left-drawer-close").click()');
+  assert.equal(await evaluate('getComputedStyle(document.querySelector("#left-drawer-close")).display'), 'none');
+  await gesture(240, 350);
+  assert.equal(await evaluate('document.querySelector("#left-drawer").getAttribute("aria-hidden")'), 'false', '同向滑动不应切换侧栏');
+  await gesture(350, 240);
+  assert.equal(await evaluate('document.querySelector("#left-drawer").getAttribute("aria-hidden")'), 'true', '反向滑动未收起左栏');
+  assert.equal(await evaluate('document.querySelector("#annotation-drawer").getAttribute("aria-hidden")'), 'true', '收起左栏时误打开右栏');
   await gesture(260, 140);
   assert.equal(await evaluate('document.querySelector("#annotation-drawer").getAttribute("aria-hidden")'), 'false');
+  assert.equal(await evaluate('getComputedStyle(document.querySelector("#annotation-close")).display'), 'none');
   await evaluate('document.querySelector("#annotation-close").click()');
   await gesture(8, 160);
   assert.equal(await evaluate('document.querySelector("#annotation-drawer").getAttribute("aria-hidden")'), 'true');

@@ -110,6 +110,7 @@ export function setupDrawers(elements: DrawerElements): DrawerController {
   elements.annotationDrawer.addEventListener("pointerenter", () => window.clearTimeout(annotationTimer));
   elements.annotationDrawer.addEventListener("pointerleave", closeAnnotationSoon);
   elements.reader.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "touch" && document.documentElement.classList.contains("platform-mobile")) return;
     if ((event.target as Element).closest(".margin-note-mark, .margin-note-highlight")) return;
     clearTimers();
     setLeftOpen(false);
