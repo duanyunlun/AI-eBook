@@ -100,6 +100,10 @@ try {
   assert.equal(installed.installed, true);
   assert.equal((await invoke('get_reader_runtime_status')).compatible, true);
   assert.equal((await invoke('restore_reader_plugin')).compatible, true);
+  const savedNote = await invoke('save_knowledge_item', { request: { item: {
+    kind: 'thought', title: '覆盖升级检查', bodyMd: 'Android 知识记录持久化测试',
+    creator: 'user', basis: 'user_thought', reviewState: 'confirmed',
+  } } });
   console.log('PASS Android 应用私有目录安装 DSH、默认插件及系统安全存储');
   for (const cancelled of [false, true, false]) {
     const outcome = await evaluate(`(async () => {
@@ -151,6 +155,7 @@ try {
   assert.equal((await invoke('get_dsh_status')).version, installed.version);
   assert.equal((await invoke('get_reader_runtime_status')).compatible, true);
   assert.equal((await invoke('update_dsh', { registry })).installed, true);
+  assert.equal((await invoke('list_knowledge', { bookId: null })).find(note => note.id === savedNote.id)?.bodyMd, savedNote.bodyMd);
   assert.equal(await evaluate('JSON.parse(localStorage.getItem("ai-provider-settings")).model'), provider.model);
   await evaluate(`(() => {
     document.querySelector('#open-settings').click();
@@ -159,7 +164,7 @@ try {
   })()`);
   await delay(1000);
   assert.match(await evaluate('document.querySelector("#reader-plugin-status").textContent'), /版本兼容/);
-  console.log('PASS Android 覆盖安装并重启后配置保留与手动再次更新 DSH');
+  console.log('PASS Android 覆盖安装并重启后知识记录、配置保留与手动再次更新 DSH');
 } finally {
   socket?.close();
   server.closeAllConnections();
