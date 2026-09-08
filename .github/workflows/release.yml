@@ -3,11 +3,15 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing prerelease tag
+        description: Git ref to build (existing tag when publishing)
         required: true
         type: string
       android_only:
         description: Retry Android without rebuilding desktop packages
+        type: boolean
+        default: false
+      validation_only:
+        description: Build and verify without uploading to a Release
         type: boolean
         default: false
       android_artifact_run_id:
@@ -70,8 +74,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NO_STRIP: true
         with:
-          tagName: ${{ inputs.tag }}
-          releaseDraft: false
+          tagName: ${{ inputs.validation_only && '' || inputs.tag }}
+          releaseDraft: true
           prerelease: true
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --config src-tauri/tauri.desktop.conf.json
   android_node:
@@ -176,6 +180,7 @@ jobs:
           if-no-files-found: ignore
           include-hidden-files: true
       - name: Upload test APK
+        if: ${{ !inputs.validation_only }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ inputs.tag }}
