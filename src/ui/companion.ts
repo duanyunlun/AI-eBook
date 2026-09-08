@@ -151,11 +151,10 @@ export function setupCompanion(
   };
   const showSelectionActions = (x: number, y: number, parent: HTMLElement = document.body): void => {
     parent.append(elements.selectionActions);
-    const width = 112;
-    const height = 146;
+    elements.selectionActions.hidden = false;
+    const { width, height } = elements.selectionActions.getBoundingClientRect();
     elements.selectionActions.style.left = `${Math.max(4, Math.min(x, window.innerWidth - width - 4))}px`;
     elements.selectionActions.style.top = `${Math.max(4, Math.min(y, window.innerHeight - height - 4))}px`;
-    elements.selectionActions.hidden = false;
   };
   const imageData = async (image: HTMLImageElement): Promise<ReadingContext["image"] | undefined> => {
     try {

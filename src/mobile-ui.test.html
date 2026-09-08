@@ -1,0 +1,33 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>移动端布局回归</title>
+<style>body{margin:0;background:#ddd;display:flex;gap:16px}iframe{border:0;width:390px;height:844px;flex:none}output{position:fixed;bottom:0;left:0;background:white;font:13px sans-serif}</style>
+<iframe id="notes" src="/src/margin-notes-ui.test.html" title="手机批注"></iframe>
+<iframe id="settings" src="/src/ai-settings-ui.test.html" title="手机设置"></iframe>
+<output id="result">检查中</output>
+<script type="module">
+const wait = async (check) => { for(let count=0;count<200;count++){if(check())return;await new Promise(done=>setTimeout(done,50));}throw new Error('等待超时'); };
+const assert = (condition,message) => {if(!condition)throw new Error(message);};
+try {
+  const frame=document.getElementById('notes'), settings=document.getElementById('settings');
+  await wait(()=>frame.contentDocument?.getElementById('result')?.textContent.startsWith('PASS'));
+  await wait(()=>settings.contentDocument?.getElementById('result')?.textContent.startsWith('PASS'));
+  const doc=frame.contentDocument;
+  for(const width of [320,390]) {
+    frame.style.width=width+'px';await new Promise(done=>setTimeout(done,100));
+    const drawer=doc.getElementById('annotation-drawer').getBoundingClientRect();
+    assert(Math.abs(drawer.width-width)<2,'侧栏未全宽');
+    assert(frame.contentWindow.getComputedStyle(doc.getElementById('left-drawer-toggle')).display==='none','菜单入口覆盖批注页签');
+    for(const id of ['margin-note-save','margin-note-back','margin-note-delete','annotation-close']){
+      const rect=doc.getElementById(id).getBoundingClientRect();
+      assert(rect.width>0&&rect.left>=0&&rect.right<=width&&rect.bottom<=844,'批注按钮溢出：'+id);
+    }
+  }
+  doc.getElementById('annotation-close').click();
+  assert(doc.getElementById('annotation-drawer').getAttribute('aria-hidden')==='true','无法关闭侧栏');
+  doc.getElementById('annotation-toggle').click();
+  const settingsDoc=settings.contentDocument, panel=settingsDoc.getElementById('settings-panel');
+  panel.inert=false;panel.setAttribute('aria-hidden','false');
+  await new Promise(done=>setTimeout(done,250));
+  assert(panel.getBoundingClientRect().left===0&&panel.getBoundingClientRect().width===390,'设置页越界');
+  document.getElementById('result').textContent='PASS：320/390px 全宽侧栏、底部按钮、关闭入口、设置页布局';
+} catch(error){ document.getElementById('result').textContent='FAIL：'+error.message; }
+</script></html>

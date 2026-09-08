@@ -33,4 +33,9 @@ await cp(resolve(extracted, platform === "win" ? "node.exe" : "bin/node"), resol
 await cp(resolve(extracted, platform === "win" ? "node_modules/npm" : "lib/node_modules/npm"), resolve(target, "npm"), { recursive: true });
 await cp(resolve(extracted, "LICENSE"), resolve(target, "LICENSE-Node.txt"));
 await writeFile(resolve(target, "version.json"), JSON.stringify({ version, platform, arch, archive, sha256: checksum }, null, 2));
+if (arch === process.arch) {
+  const node = resolve(target, platform === "win" ? "node.exe" : "node");
+  if (execFileSync(node, ["--version"], { encoding: "utf8" }).trim() !== version) throw new Error("私有 Node 无法执行");
+  execFileSync(node, [resolve(target, "npm/bin/npm-cli.js"), "--version"], { stdio: "inherit" });
+}
 console.log(`已准备并校验 ${name}`);

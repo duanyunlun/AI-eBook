@@ -5,9 +5,9 @@ export function clampPage(page: number, total: number): number {
   return Math.min(Math.max(Math.trunc(page), 1), Math.max(total, 1));
 }
 
-export function clampScale(scale: number): number {
+export function clampScale(scale: number, minimum = 0.6): number {
   if (!Number.isFinite(scale)) return 1;
-  return Math.min(Math.max(Math.round(scale * 10) / 10, 0.6), 2.4);
+  return Math.min(Math.max(Math.round(scale * 10) / 10, minimum), 2.4);
 }
 
 export function parseBase64DataUrl(source: string): { mediaType: string; data: string } | undefined {

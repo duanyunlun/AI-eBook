@@ -1,5 +1,6 @@
 {
   "bundle": {
-    "resources": { "runtime/": "runtime/" }
+    "resources": { "runtime/": "runtime/" },
+    "macOS": { "signingIdentity": "-" }
   }
 }

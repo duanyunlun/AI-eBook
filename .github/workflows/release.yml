@@ -53,6 +53,7 @@ jobs:
       - run: npm test
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - run: node scripts/prepare-node.mjs ${{ matrix.arch }}
+      - run: node scripts/check-dsh.mjs
       - name: Build and upload
         uses: tauri-apps/tauri-action@v0
         env:
@@ -81,7 +82,7 @@ jobs:
       - uses: android-actions/setup-android@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android
+          targets: aarch64-linux-android,x86_64-linux-android
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
@@ -97,11 +98,31 @@ jobs:
       - name: Build test APK
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
-        run: npm run tauri -- android build --debug --apk --target aarch64 --ci
+        run: npm run tauri -- android build --debug --apk --split-per-abi --target aarch64 x86_64 --ci
+      - name: Enable KVM for emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android startup smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: bash scripts/android-smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-startup-check
+          path: .build-cache/android-smoke
+          if-no-files-found: ignore
       - name: Upload test APK
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' -exec cp {} AI-eBook-Android-arm64-preview.apk \;
+          find src-tauri/gen/android/app/build/outputs/apk -name '*arm64*.apk' -exec cp {} AI-eBook-Android-arm64-preview.apk \;
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify AI-eBook-Android-arm64-preview.apk
           gh release upload "$RELEASE_TAG" AI-eBook-Android-arm64-preview.apk --clobber

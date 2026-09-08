@@ -2635,6 +2635,7 @@ body.is-resizing-question * {
   .text-page { width: calc(100vw - 24px); padding: 24px 20px 40px; }
   .drawer-trigger { top: 8px; bottom: auto; width: 44px; height: 44px; background: var(--surface-raised); color: var(--text); border: 1px solid var(--border); border-radius: 6px; }
   .left-drawer-trigger { left: 8px; }
+  .workspace:has(.annotation-drawer[aria-hidden="false"]) .left-drawer-trigger { display: none; }
   .left-drawer-trigger::after { content: "☰"; }
   .annotation-trigger { right: 8px; }
   .annotation-trigger::after { content: "▤"; }

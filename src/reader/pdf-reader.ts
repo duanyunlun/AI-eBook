@@ -85,7 +85,9 @@ export function setupPdfReader(
     elements.pageInput.max = String(Math.max(total, 1));
     elements.pageInput.disabled = total === 0;
     elements.pageTotal.textContent = String(total);
-    elements.zoomOut.disabled = !documentProxy || scale <= 0.6;
+    const minimum = window.innerWidth <= 700 ? 0.2 : 0.6;
+    elements.zoomSlider.min = String(minimum);
+    elements.zoomOut.disabled = !documentProxy || scale <= minimum;
     elements.zoomSlider.disabled = !documentProxy;
     elements.zoomIn.disabled = !documentProxy || scale >= 2.4;
     elements.zoomSlider.value = String(scale);
@@ -355,7 +357,7 @@ export function setupPdfReader(
   }
   const changeScale = (nextScale: number): void => {
     if (!documentProxy) return;
-    const normalizedScale = clampScale(nextScale);
+    const normalizedScale = clampScale(nextScale, window.innerWidth <= 700 ? 0.2 : 0.6);
     if (normalizedScale === scale) return;
     scale = normalizedScale;
     for (const task of renderTasks.values()) task.cancel();

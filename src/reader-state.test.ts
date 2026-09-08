@@ -13,6 +13,8 @@ test("缩放比例按十个百分点调整并限制范围", () => {
   assert.equal(clampScale(0.2), 0.6);
   assert.equal(clampScale(1.26), 1.3);
   assert.equal(clampScale(3), 2.4);
+  assert.equal(clampScale(0.3, 0.2), 0.3);
+  assert.equal(clampScale(0.1, 0.2), 0.2);
 });
 
 test("页面截图使用浏览器实际返回的图片格式", () => {
