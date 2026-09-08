@@ -70,6 +70,14 @@ class BookPickerPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun backgroundApp(invoke: Invoke) {
+        activity.runOnUiThread {
+            activity.moveTaskToBack(true)
+            invoke.resolve(JSObject())
+        }
+    }
+
+    @Command
     fun statusBar(invoke: Invoke) {
         val args = invoke.parseArgs(StatusBarArgs::class.java)
         activity.runOnUiThread {

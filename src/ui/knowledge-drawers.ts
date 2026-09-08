@@ -48,6 +48,7 @@ export function setupKnowledgeDrawers(
     setOpen(elements.knowledgeDetailDrawer, elements.knowledgeDetailTrigger, false);
   };
   const openSoon = (side: "left" | "right"): void => {
+    if (window.matchMedia("(hover: none)").matches) return;
     const timer = side === "left" ? leftTimer : rightTimer;
     window.clearTimeout(timer);
     const next = window.setTimeout(side === "left" ? openLeft : openDetail, 150);
@@ -55,6 +56,7 @@ export function setupKnowledgeDrawers(
     else rightTimer = next;
   };
   const closeSoon = (side: "left" | "right"): void => {
+    if (window.matchMedia("(hover: none)").matches) return;
     window.clearTimeout(side === "left" ? leftTimer : rightTimer);
     const next = window.setTimeout(() => {
       const drawer = side === "left" ? elements.knowledgeLeftDrawer : elements.knowledgeDetailDrawer;
@@ -66,6 +68,8 @@ export function setupKnowledgeDrawers(
     else rightTimer = next;
   };
 
+  elements.knowledgeLeftTrigger.addEventListener("click", openLeft);
+  elements.knowledgeDetailTrigger.addEventListener("click", openDetail);
   elements.knowledgeLeftTrigger.addEventListener("pointerenter", () => openSoon("left"));
   elements.knowledgeLeftTrigger.addEventListener("pointerleave", () => closeSoon("left"));
   elements.knowledgeDetailTrigger.addEventListener("pointerenter", () => openSoon("right"));

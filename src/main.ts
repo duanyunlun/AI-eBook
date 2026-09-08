@@ -14,7 +14,6 @@ import { mountShell } from "./ui/shell";
 import { setupPreferences } from "./ui/preferences";
 import { setupTheme } from "./ui/theme";
 import { setupMarginNotes } from "./ui/margin-notes";
-import { setupTouchReader } from "./ui/touch-reader";
 import "./styles.css";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -27,7 +26,6 @@ const showError = (error: unknown): void => {
   elements.error.hidden = false;
 };
 const drawers = setupDrawers(elements);
-setupTouchReader(elements.reader, drawers);
 setupAnnotationResize(elements.annotationResizer);
 setupKnowledgeResize(elements.knowledgeDetailResizer);
 setupQuestionResize(elements.questionResizer, elements.questionInput);
@@ -129,12 +127,17 @@ window.addEventListener("keydown", (event) => {
 });
 let closing = false;
 let allowClose = false;
-const platform = invoke<{ mobile: boolean; aiAvailable: boolean }>("platform_info");
-void platform.then(({ mobile, aiAvailable }) => {
+const platform = invoke<{ mobile: boolean; android: boolean; aiAvailable: boolean }>("platform_info");
+void platform.then(async ({ mobile, android, aiAvailable }) => {
   document.documentElement.classList.toggle("platform-mobile", mobile);
-  document.getElementById("status-bar-setting")!.hidden = !mobile;
-  window.dispatchEvent(new Event("reader-platform-ready"));
+  document.getElementById("status-bar-setting")!.hidden = !android;
   if (mobile) {
+    const { setupTouchReader } = await import("./ui/touch-reader");
+    setupTouchReader(elements.reader, drawers);
+    if (android) {
+      const { setupMobileBack } = await import("./ui/mobile-back");
+      await setupMobileBack(drawers, knowledgeDrawers, reader.flush, showError);
+    }
     elements.exitApp.hidden = true;
     elements.chooseVault.disabled = true;
     elements.chooseVault.title = "移动端使用应用私有目录";

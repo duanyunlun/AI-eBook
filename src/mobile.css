@@ -1,0 +1,27 @@
+.platform-mobile:not(.reading-controls-visible) :is(.reader-header-zone, .reader-footer-zone, .drawer-trigger) {
+  visibility: hidden;
+  pointer-events: none;
+}
+.platform-mobile.reading-controls-visible :is(.chapter-toggle, .reader-controls) {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+.swipe-edge-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  pointer-events: none;
+  display: flex;
+  justify-content: space-between;
+}
+.swipe-edge-preview span {
+  width: var(--swipe-edge-width);
+  display: grid;
+  place-content: center;
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  border-inline: 1px dashed var(--accent);
+  color: var(--text);
+  writing-mode: vertical-rl;
+  font-size: 12px;
+}

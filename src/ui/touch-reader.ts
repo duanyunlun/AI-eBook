@@ -1,24 +1,40 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { DrawerController } from "./drawers";
 import { readingGesture, swipeEdge } from "../touch-gesture";
+import "../mobile.css";
 
 export function setupTouchReader(reader: HTMLElement, drawers: DrawerController): void {
   const root = document.documentElement;
-  const coarse = window.matchMedia("(pointer: coarse)");
-  const enabled = (): boolean => coarse.matches || root.classList.contains("platform-mobile");
   const settings = document.getElementById("touch-settings")!;
   const edgeInput = document.getElementById("swipe-edge") as HTMLInputElement;
   const edgeValue = document.getElementById("swipe-edge-value")!;
   const hiddenInput = document.getElementById("hide-status-bar") as HTMLInputElement;
   let edge = swipeEdge(Number(localStorage.getItem("swipe-edge") ?? 32));
   let start: { x: number; y: number; time: number; moved: number } | undefined;
-  const updateMode = (): void => {
-    root.classList.toggle("touch-reader", enabled());
-    settings.hidden = !enabled();
+  root.classList.add("touch-reader");
+  settings.hidden = false;
+  const preview = document.createElement("div");
+  preview.className = "swipe-edge-preview";
+  preview.hidden = true;
+  preview.setAttribute("aria-hidden", "true");
+  preview.innerHTML = '<span>滑动禁区</span><span>滑动禁区</span>';
+  document.body.append(preview);
+  let previewTimer = 0;
+  let draggingEdge = false;
+  const showPreview = (): void => {
+    clearTimeout(previewTimer);
+    preview.style.setProperty("--swipe-edge-width", `${edge}px`);
+    preview.hidden = false;
   };
-  updateMode();
-  coarse.addEventListener("change", updateMode);
-  window.addEventListener("reader-platform-ready", updateMode);
+  const hidePreview = (): void => { if (!draggingEdge) previewTimer = window.setTimeout(() => { preview.hidden = true; }, 600); };
+  edgeInput.addEventListener("pointerdown", () => { draggingEdge = true; showPreview(); });
+  edgeInput.addEventListener("focus", showPreview);
+  edgeInput.addEventListener("blur", () => { preview.hidden = true; });
+  const finishPreview = (): void => { draggingEdge = false; hidePreview(); };
+  window.addEventListener("pointerup", finishPreview);
+  window.addEventListener("pointercancel", finishPreview);
+  new MutationObserver(() => { if (settings.closest('[aria-hidden="true"]')) preview.hidden = true; })
+    .observe(document.getElementById("settings-panel")!, { attributes: true, attributeFilter: ["aria-hidden"] });
   const renderEdge = (): void => {
     edgeInput.value = String(edge);
     edgeValue.textContent = `${edge} px`;
@@ -28,6 +44,8 @@ export function setupTouchReader(reader: HTMLElement, drawers: DrawerController)
     edge = swipeEdge(edgeInput.valueAsNumber);
     localStorage.setItem("swipe-edge", String(edge));
     renderEdge();
+    showPreview();
+    hidePreview();
   });
   hiddenInput.checked = localStorage.getItem("hide-status-bar") === "true";
   hiddenInput.addEventListener("change", async () => {
@@ -45,7 +63,7 @@ export function setupTouchReader(reader: HTMLElement, drawers: DrawerController)
   const excluded = (target: EventTarget | null): boolean => target instanceof Element && Boolean(target.closest("button, a, input, textarea, select, [contenteditable], .margin-note-mark, .margin-note-highlight"));
   reader.addEventListener("touchstart", (event) => {
     start = undefined;
-    if (!enabled() || event.touches.length !== 1 || excluded(event.target) || reader.classList.contains("is-capturing")) return;
+    if (event.touches.length !== 1 || excluded(event.target) || reader.classList.contains("is-capturing")) return;
     const touch = event.touches[0];
     const viewport = window.visualViewport;
     const visibleX = touch.clientX - (viewport?.offsetLeft ?? 0);
@@ -74,7 +92,7 @@ export function setupTouchReader(reader: HTMLElement, drawers: DrawerController)
     if (action === "tap" && initial.moved < 10) root.classList.toggle("reading-controls-visible");
     if (action === "left" || action === "right") {
       root.classList.remove("reading-controls-visible");
-      if (action === "left") drawers.toggleLeft();
+      if (action === "right") drawers.toggleLeft();
       else drawers.openAnnotation();
     }
   }, { passive: true });

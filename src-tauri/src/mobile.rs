@@ -8,6 +8,18 @@ use tauri::{
 
 struct BookPicker(PluginHandle<Wry>);
 
+pub async fn background_app(app: AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<BookPicker>()
+            .0
+            .run_mobile_plugin::<serde_json::Value>("backgroundApp", ())
+            .map(|_| ())
+            .map_err(|_| "无法返回系统桌面".to_string())
+    })
+    .await
+    .map_err(|_| "返回系统桌面任务失败".to_string())?
+}
+
 pub async fn set_status_bar(app: AppHandle, hidden: bool) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         app.state::<BookPicker>()

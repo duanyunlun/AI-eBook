@@ -43,10 +43,10 @@ try {
   assert.equal(await visible(), true);
   await gesture(180, 180);
   assert.equal(await visible(), false);
-  await gesture(260, 140);
+  await gesture(140, 260);
   assert.equal(await evaluate('document.querySelector("#left-drawer").getAttribute("aria-hidden")'), 'false');
   await evaluate('document.querySelector("#left-drawer-close").click()');
-  await gesture(140, 260);
+  await gesture(260, 140);
   assert.equal(await evaluate('document.querySelector("#annotation-drawer").getAttribute("aria-hidden")'), 'false');
   await evaluate('document.querySelector("#annotation-close").click()');
   await gesture(8, 160);
@@ -70,9 +70,12 @@ try {
   assert.equal(await evaluate('document.querySelector("#status-bar-setting").hidden'), false);
   await evaluate('document.querySelector("#swipe-edge").value = "80"; document.querySelector("#swipe-edge").dispatchEvent(new Event("input"))');
   assert.equal(await evaluate('localStorage.getItem("swipe-edge")'), '80');
+  assert.equal(await evaluate('document.querySelector(".swipe-edge-preview").hidden'), false);
+  assert.equal(await evaluate('document.querySelector(".swipe-edge-preview span").getBoundingClientRect().width'), 80);
+  assert.equal(await evaluate('getComputedStyle(document.querySelector(".swipe-edge-preview")).pointerEvents'), 'none');
   await evaluate('document.querySelector("#left-drawer-close").click()');
   await gesture(60, 180);
-  assert.equal(await evaluate('document.querySelector("#annotation-drawer").getAttribute("aria-hidden")'), 'true');
+  assert.equal(await evaluate('document.querySelector("#left-drawer").getAttribute("aria-hidden")'), 'true');
   await evaluate('document.querySelector("#open-settings").click()');
   await protocol('Emulation.setPageScaleFactor', { pageScaleFactor: 1 });
   const setHidden = async hidden => {
@@ -92,6 +95,42 @@ try {
   assert.equal(await evaluate('innerHeight'), normalHeight);
   await evaluate('document.querySelector("#swipe-edge").value = "32"; document.querySelector("#swipe-edge").dispatchEvent(new Event("input"))');
   console.log(`PASS 状态栏设置与窗口重排：${normalHeight} → ${hiddenHeight} → ${normalHeight}；禁区设置持久化`);
+  const back = async () => { adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); await delay(500); };
+  assert.equal(await evaluate('document.querySelector("#settings-title")'), null);
+  await evaluate('document.activeElement?.blur()');
+  await back();
+  assert.equal(await evaluate('document.querySelector("#settings-panel").getAttribute("aria-hidden")'), 'true');
+  assert.equal(await evaluate('document.querySelector("#left-drawer").getAttribute("aria-hidden")'), 'false');
+  await back();
+  assert.equal(await evaluate('document.querySelector("#left-drawer").getAttribute("aria-hidden")'), 'true');
+  for (const page of ['library', 'knowledge']) {
+    await evaluate(`document.querySelector('#open-${page}').click()`);
+    await delay(700);
+    if (/mInputShown=true/.test(adb('shell', 'dumpsys', 'input_method'))) {
+      await back();
+      assert.equal(await evaluate(`document.querySelector('#${page}-panel').hidden`), false, '返回键应先收起键盘');
+    }
+    await back();
+    assert.equal(await evaluate(`document.querySelector('#${page}-panel').hidden`), true, `${page} 返回失败`);
+  }
+  await evaluate('document.querySelector("#annotation-toggle").click(); document.querySelector("#thread-list").hidden = false; document.querySelector("#thread-list").textContent = "返回测试历史弹层"; document.querySelector("#thread-history").setAttribute("aria-expanded", "true")');
+  await back();
+  assert.equal(await evaluate('document.querySelector("#thread-list").hidden'), true);
+  assert.equal(await evaluate('document.querySelector("#annotation-drawer").getAttribute("aria-hidden")'), 'false');
+  await back();
+  assert.equal(await evaluate('document.querySelector("#annotation-drawer").getAttribute("aria-hidden")'), 'true');
+  await evaluate('document.querySelector("#lookup-dialog").showModal()');
+  await back();
+  assert.equal(await evaluate('document.querySelector("#lookup-dialog").open'), false);
+  await evaluate('document.documentElement.classList.add("reading-controls-visible")');
+  await back();
+  assert.equal(await visible(), false);
+  await back();
+  assert.equal(await evaluate('document.visibilityState'), 'hidden');
+  adb('shell', 'am', 'start', '-W', '-n', 'app.aiebook.reader/.MainActivity');
+  await delay(500);
+  assert.equal(await evaluate('document.visibilityState'), 'visible');
+  console.log('PASS 系统返回键逐层关闭设置、书库、知识库、对话历史、侧栏和解释窗口；阅读区返回桌面后可恢复');
 } finally {
   socket.close();
   adb('forward', '--remove', 'tcp:19222');

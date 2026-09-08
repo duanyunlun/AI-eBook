@@ -172,7 +172,7 @@ export function mountShell(app: HTMLElement): ShellElements {
         </div>
 
         <aside class="left-drawer drawer" id="left-drawer" aria-label="主菜单" aria-hidden="true">
-          <button class="icon-command mobile-close" id="left-drawer-close" type="button" aria-label="关闭主菜单">×</button>
+          <button class="icon-command drawer-close" id="left-drawer-close" type="button" aria-label="关闭主菜单">×</button>
           <nav class="drawer-menu">
             <button class="drawer-command" id="open-book" type="button"><span aria-hidden="true">＋</span>打开</button>
             <button class="drawer-command" id="open-chapters" type="button"><span aria-hidden="true">☷</span>目录</button>
@@ -194,7 +194,7 @@ export function mountShell(app: HTMLElement): ShellElements {
               <button id="margin-note-mode" type="button" role="tab" aria-selected="false">批注</button>
             </div>
             <div class="companion-header-actions">
-              <button class="icon-command mobile-close" id="annotation-close" type="button" aria-label="关闭侧栏">×</button>
+              <button class="icon-command drawer-close" id="annotation-close" type="button" aria-label="关闭侧栏">×</button>
               <button class="icon-command" id="pin-margin-notes" type="button" aria-label="固定批注侧栏" title="固定批注侧栏" aria-pressed="false" hidden>⌖</button>
               <button class="clear-conversation" id="clear-conversation" type="button" title="开始新对话，保留历史记录">新对话</button>
               <button class="icon-command capture-page" id="capture-page" type="button" aria-label="截取当前页" title="截取当前页">▣</button>
@@ -249,18 +249,17 @@ export function mountShell(app: HTMLElement): ShellElements {
         </aside>
         <button class="drawer-trigger annotation-trigger" id="annotation-toggle" type="button" aria-controls="annotation-drawer" aria-expanded="false" aria-label="展开批注"></button>
 
-        <aside class="settings-panel drawer" id="settings-panel" aria-labelledby="settings-title" aria-hidden="true" inert>
+        <aside class="settings-panel drawer" id="settings-panel" aria-label="设置" aria-hidden="true" inert>
           <div class="settings-inner">
             <header class="settings-header">
-              <h1 id="settings-title">设置</h1>
-              <button class="icon-command" id="settings-close" type="button" aria-label="关闭设置" title="关闭">×</button>
-            </header>
             <nav class="settings-tabs" role="tablist" aria-label="设置分类">
               <button type="button" role="tab" aria-selected="true" data-settings-tab="appearance">外观</button>
               <button type="button" role="tab" aria-selected="false" data-settings-tab="ai">AI</button>
               <button type="button" role="tab" aria-selected="false" data-settings-tab="shortcuts">快捷键</button>
               <button type="button" role="tab" aria-selected="false" data-settings-tab="data">数据</button>
             </nav>
+              <button class="icon-command" id="settings-close" type="button" aria-label="关闭设置" title="关闭">×</button>
+            </header>
             <section class="settings-page" data-settings-page="shortcuts" hidden>
               <div class="settings-section-heading">
                 <h2>快捷键</h2>
@@ -276,7 +275,7 @@ export function mountShell(app: HTMLElement): ShellElements {
                   <label id="status-bar-setting" hidden><span>隐藏系统状态栏</span><input id="hide-status-bar" type="checkbox" /></label>
                   <label><span>两侧滑动禁区</span><span><input id="swipe-edge" type="range" min="24" max="120" step="4" value="32" /><output id="swipe-edge-value">32 px</output></span></label>
                 </div>
-                <p>点击阅读区域显示或隐藏上下控件；在中间区域左滑打开左侧栏，右滑打开右侧栏。边缘禁区不触发应用滑动，保留系统返回手势。</p>
+                <p>点击阅读区域显示或隐藏上下控件；在中间区域右滑打开左侧栏，左滑打开右侧栏。拖动滑动禁区设置时，两侧色带标出不触发应用手势的范围。</p>
               </section>
               <h2>外观</h2>
               <div class="appearance-settings">

@@ -1,0 +1,36 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>桌面平台边界回归</title>
+<div id="app"></div><output id="result" style="position:fixed;bottom:0;z-index:9999;background:white;color:black"></output>
+<script type="module">
+const commands = [];
+window.__TAURI_INTERNALS__ = {
+  metadata: { currentWindow: { label: 'main' }, currentWebview: { label: 'main' } },
+  transformCallback: () => 1, unregisterCallback: () => {},
+  invoke: async (command) => {
+    commands.push(command);
+    if (command === 'platform_info') return { mobile: false, android: false, aiAvailable: true };
+    if (command === 'list_books' || command === 'list_system_fonts') return [];
+    if (command.startsWith('plugin:event|')) return 1;
+    if (command === 'has_ai_api_key') return false;
+    if (command === 'get_vault_path') return '测试资料库';
+    throw new Error('测试中未实现的非关键接口：' + command);
+  }
+};
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
+try {
+  await import('./main.ts');
+  await new Promise(resolve => setTimeout(resolve, 250));
+  assert(!document.documentElement.classList.contains('touch-reader'), '桌面错误启用移动手势');
+  assert(document.querySelector('#touch-settings').hidden, '桌面显示移动设置');
+  assert(!document.querySelector('.swipe-edge-preview'), '桌面加载移动禁区');
+  assert(!commands.some(command => command.includes('register_listener') || command === 'set_status_bar'), '桌面注册 Android 行为');
+  assert(!document.querySelector('#settings-title'), '设置标题未移除');
+  document.querySelector('#open-settings').click();
+  assert(document.querySelectorAll('.settings-tabs [role=tab]').length === 4, '设置页签缺失');
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+  assert(document.querySelector('#settings-panel').getAttribute('aria-hidden') === 'true', '桌面 Esc 失效');
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'm', code: 'KeyM' }));
+  assert(document.querySelector('#left-drawer').getAttribute('aria-hidden') === 'false', '桌面快捷键失效');
+  document.querySelector('#open-settings').click();
+  document.querySelector('#result').textContent = 'PASS：桌面不加载移动模块，保留菜单快捷键、Esc 和四个设置页签';
+} catch(error) { document.querySelector('#result').textContent = 'FAIL：' + error.message; }
+</script></html>

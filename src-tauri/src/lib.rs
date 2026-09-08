@@ -168,6 +168,17 @@ fn save_ai_api_key(provider: PublicProviderConfig, api_key: String) -> Result<()
 }
 
 #[tauri::command]
+async fn background_app(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    return mobile::background_app(app).await;
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = app;
+        Err("此操作仅适用于 Android".into())
+    }
+}
+
+#[tauri::command]
 async fn set_status_bar(app: tauri::AppHandle, hidden: bool) -> Result<(), String> {
     #[cfg(target_os = "android")]
     return mobile::set_status_bar(app, hidden).await;
@@ -180,7 +191,7 @@ async fn set_status_bar(app: tauri::AppHandle, hidden: bool) -> Result<(), Strin
 
 #[tauri::command]
 fn platform_info() -> serde_json::Value {
-    serde_json::json!({"mobile": cfg!(mobile), "aiAvailable": cfg!(any(desktop, target_os = "android"))})
+    serde_json::json!({"mobile": cfg!(mobile), "android": cfg!(target_os = "android"), "aiAvailable": cfg!(any(desktop, target_os = "android"))})
 }
 
 #[tauri::command]
@@ -268,6 +279,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             platform_info,
             set_status_bar,
+            background_app,
             has_ai_api_key,
             save_ai_api_key,
             generate_ai,

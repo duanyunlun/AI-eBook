@@ -4,6 +4,7 @@ import {mountShell} from './ui/shell.ts';
 import {setupPdfReader} from './reader/pdf-reader.ts';
 import {setupMarginNotes} from './ui/margin-notes.ts';
 import {setupDrawers} from './ui/drawers.ts';
+import {closeMobilePage} from './ui/mobile-back.ts';
 import {annotationRects} from './reader/annotation-anchor.ts';
 import './styles.css';
 const items = [];
@@ -73,6 +74,13 @@ try {
   items.push({item:{id:'demo',bookId:'book',kind:'thought',creator:'user',bodyMd:'这里强调的是主动阅读。下次重读时，先列出自己的问题。'},quote:range.toString().trim(),locator:{annotation:true,page:1,format:'md',editionId:'edition',start:0,end:25,rects:[]}});
   page.style.width='';notes.setBook(book);await tick();await notes.refresh();
   get('margin-notes-list').querySelector('button').click();
-  get('result').textContent='PASS：选区绑定、保存失败保留、筛选、切书草稿、编辑保存、固定、重排定位、删除标记';
+  await write('返回时必须保留这段未保存的批注');
+  closeMobilePage(drawers, {closeAll:()=>{}});
+  assert(get('margin-notes-panel').querySelector('.thread-delete-confirmation'),'返回绕过了未保存确认');
+  closeMobilePage(drawers, {closeAll:()=>{}});
+  assert(!get('margin-notes-panel').querySelector('.thread-delete-confirmation')&&!get('margin-note-editor').hidden,'返回没有取消确认');
+  assert(get('margin-note-body').textContent.includes('必须保留'),'返回丢失草稿');
+  get('margin-note-save').click();await wait(()=>get('margin-note-status').textContent==='已保存'&&!get('margin-note-save').disabled);
+  get('result').textContent='PASS：选区绑定、保存失败保留、筛选、切书草稿、编辑保存、固定、重排定位、删除标记、返回保留未保存批注';
 }catch(error){get('result').textContent='FAIL：'+error.stack;}
 </script></html>
