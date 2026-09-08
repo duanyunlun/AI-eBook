@@ -27,6 +27,7 @@ export AR="$toolchain/bin/llvm-ar"
 export CC_host=gcc CXX_host=g++ AR_host=ar
 export GYP_DEFINES="target_arch=$arch v8_target_arch=$arch android_target_arch=$arch host_os=linux OS=android android_ndk_path=$NDK_HOME"
 export LDFLAGS='-Wl,-z,max-page-size=16384'
+cp "$NDK_HOME/sources/android/cpufeatures/cpu-features.c" deps/zlib/android_cpu_features.c
 python3 - <<'PY'
 from pathlib import Path
 source = Path('deps/zlib/zlib.gyp')
@@ -36,11 +37,11 @@ assert content.count(marker) == 2
 prefix, target = content.split(marker, 1)
 conditions = "          'conditions': [\n"
 assert conditions in target
-target = target.replace(conditions, conditions + "            ['OS==\"android\" and _toolset==\"target\"', {'sources': ['<(android_ndk_path)/sources/android/cpufeatures/cpu-features.c']}],\n", 1)
+target = target.replace(conditions, conditions + "            ['OS==\"android\" and _toolset==\"target\"', {'sources': ['<(ZLIB_ROOT)/android_cpu_features.c']}],\n", 1)
 source.write_text(prefix + marker + target)
 PY
 ./configure --dest-cpu="$arch" --dest-os=android --openssl-no-asm --cross-compiling --partly-static --without-node-snapshot
-make -j2 > "$source_root/build.log" 2>&1 || { tail -80 "$source_root/build.log"; exit 1; }
+make -j2 > "$source_root/build.log" 2>&1 || { tail -80 "$source_root/build.log" | cut -c1-1000; exit 1; }
 cp out/Release/node "$root/libnode_runtime.so"
 "$toolchain/bin/llvm-strip" "$root/libnode_runtime.so"
 "$toolchain/bin/llvm-readelf" -h -l "$root/libnode_runtime.so"
