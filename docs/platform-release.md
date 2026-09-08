@@ -4,8 +4,8 @@
 
 | 平台 | 安装包 | 当前范围 |
 | --- | --- | --- |
-| macOS Apple Silicon | arm64 DMG | 阅读、批注、知识库、DSH |
-| macOS Intel | x64 DMG | 同上，独立构建 |
+| macOS 13.5+ Apple Silicon | arm64 DMG | 阅读、批注、知识库、DSH |
+| macOS 13.5+ Intel | x64 DMG | 同上，独立构建 |
 | Windows 10/11 x64 | NSIS EXE | 同上，WebView2 安装器按需下载运行时 |
 | Ubuntu 22.04+ x64 | DEB、AppImage | 同上，密钥存储需要桌面 Secret Service |
 | Android 8+ arm64 | 测试 APK | 阅读、记录、批注、知识库、应用私有 DSH 与阅读器插件 |

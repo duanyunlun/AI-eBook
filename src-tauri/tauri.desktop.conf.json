@@ -1,6 +1,6 @@
 {
   "bundle": {
     "resources": { "runtime/": "runtime/" },
-    "macOS": { "signingIdentity": "-" }
+    "macOS": { "signingIdentity": "-", "minimumSystemVersion": "13.5" }
   }
 }
