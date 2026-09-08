@@ -35,6 +35,8 @@ Android 从官方 Node 24.20.0 源码交叉编译 arm64/x64 运行时，使用 A
 
 设置 `validation_only=true` 时仅构建验收，不上传 Release，可使用分支或提交作为 `tag`。正式预览包先上传为草稿，待各平台检查完成后再发布；Android Node 源码构建脚本也从指定标签检出。
 
+Android 本机单架构调试时，将对应 Node 构建产物放入 `.build-cache/android-node/android-node-arm64`（或 `android-node-x64`），初始化 Android 项目后执行 `node scripts/prepare-android.mjs arm64`（或 `x64`）。不传参数时仍准备两种架构，供发布流程使用。
+
 桌面本地复现：
 
 ```sh

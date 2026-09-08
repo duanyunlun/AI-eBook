@@ -4,7 +4,10 @@ import assert from 'node:assert/strict';
 
 const app = resolve('src-tauri/gen/android/app');
 const artifacts = resolve('.build-cache/android-node');
-for (const [arch, abi] of [['arm64', 'arm64-v8a'], ['x64', 'x86_64']]) {
+const architecture = process.argv[2];
+assert.ok(!architecture || ['arm64', 'x64'].includes(architecture), '仅支持 arm64 或 x64');
+const targets = [['arm64', 'arm64-v8a'], ['x64', 'x86_64']].filter(([arch]) => !architecture || arch === architecture);
+for (const [arch, abi] of targets) {
   const runtime = resolve(artifacts, `android-node-${arch}`);
   assert.equal((await readFile(resolve(runtime, 'version.txt'), 'utf8')).trim(), 'v24.20.0');
   const destination = resolve(app, 'src/main/jniLibs', abi);
@@ -14,7 +17,7 @@ for (const [arch, abi] of [['arm64', 'arm64-v8a'], ['x64', 'x86_64']]) {
 const assets = resolve(app, 'src/main/assets/node-runtime');
 await mkdir(assets, { recursive: true });
 for (const name of ['npm', 'version.txt', 'LICENSE-Node.txt']) {
-  await cp(resolve(artifacts, 'android-node-arm64', name), resolve(assets, name), { recursive: true });
+  await cp(resolve(artifacts, `android-node-${targets[0][0]}`, name), resolve(assets, name), { recursive: true });
 }
 assert.ok(process.env.ANDROID_HOME);
 const cpuFeatures = await readFile(resolve(process.env.ANDROID_HOME, 'ndk/27.2.12479018/sources/android/cpufeatures/cpu-features.c'), 'utf8');
