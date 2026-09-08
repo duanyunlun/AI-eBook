@@ -9,7 +9,7 @@ on:
 jobs:
   node:
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 360
     strategy:
       fail-fast: false
       matrix:
@@ -35,7 +35,22 @@ jobs:
       - if: steps.runtime.outputs.cache-hit != 'true'
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
-        run: bash scripts/build-android-node.sh ${{ matrix.arch }}
+        run: |
+          bash scripts/build-android-node.sh ${{ matrix.arch }} &
+          build_pid=$!
+          while kill -0 "$build_pid" 2>/dev/null; do
+            sleep 60
+            if test -f .build-cache/node-source-${{ matrix.arch }}/build.log; then
+              wc -l .build-cache/node-source-${{ matrix.arch }}/build.log
+            fi
+          done
+          wait "$build_pid"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: android-node-${{ matrix.arch }}-build-log
+          path: .build-cache/node-source-${{ matrix.arch }}/build.log
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: android-node-${{ matrix.arch }}
