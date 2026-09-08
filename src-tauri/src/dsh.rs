@@ -121,7 +121,8 @@ fn npm_command(app: &AppHandle) -> Result<Command, String> {
     #[cfg(target_os = "android")]
     {
         command.arg("--ignore-scripts");
-        command.env("HOME", app.path().app_data_dir().map_err(|_| "应用目录不可用")?);
+        let directory = app.path().app_data_dir().map_err(|_| "应用目录不可用")?;
+        command.env("HOME", &directory).current_dir(directory);
     }
     for key in [
         "HTTP_PROXY",

@@ -51,7 +51,8 @@ class BookPickerPlugin(private val activity: Activity) : Plugin(activity) {
             require(version.matches(Regex("v[0-9]+\\.[0-9]+\\.[0-9]+")))
             val root = File(activity.filesDir, "node-runtime/$version")
             val marker = File(root, ".complete")
-            if (!marker.isFile) {
+            val markerVersion = "$version:2"
+            if (!marker.isFile || marker.readText() != markerVersion) {
                 root.deleteRecursively()
                 fun copyAssets(source: String, target: File) {
                     val children = activity.assets.list(source) ?: emptyArray()
@@ -63,7 +64,7 @@ class BookPickerPlugin(private val activity: Activity) : Plugin(activity) {
                     }
                 }
                 copyAssets("node-runtime", root)
-                marker.writeText(version)
+                marker.writeText(markerVersion)
             }
             val node = File(activity.applicationInfo.nativeLibraryDir, "libnode_runtime.so")
             check(node.isFile && node.canExecute())

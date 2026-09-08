@@ -15,6 +15,12 @@ for package in packages:
     certificate = subprocess.check_output([str(signer), 'verify', '--print-certs', str(package)], text=True)
     assert 'Signer #1 certificate SHA-256 digest: 82d9aeaf645261256b275deb3f41b745aa14eb4815320d4c59c61c1878dadb41' in certificate, 'APK 未使用固定预览签名'
     with zipfile.ZipFile(package) as archive:
+        assets = Path('src-tauri/gen/android/app/src/main/assets/node-runtime')
+        assert assets.is_dir(), '缺少用于比对的 npm 源文件'
+        for source in assets.rglob('*'):
+            if source.is_file():
+                name = 'assets/node-runtime/' + source.relative_to(assets).as_posix()
+                assert archive.read(name) == source.read_bytes(), f'APK 运行时资源不完整：{name}'
         libraries = [name for name in archive.namelist() if name.startswith('lib/') and name.endswith('.so')]
         assert any(name.endswith('/libnode_runtime.so') for name in libraries), 'APK 缺少 Node'
         assert any(name.endswith('/libai_ebook_lib.so') for name in libraries), 'APK 缺少阅读器'

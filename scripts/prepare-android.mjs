@@ -27,6 +27,10 @@ await cp('src-tauri/android/BookPickerPlugin.kt', resolve(app, 'src/main/java/ap
 const gradlePath = resolve(app, 'build.gradle.kts');
 let gradle = await readFile(gradlePath, 'utf8');
 assert.ok(gradle.includes('android {'));
+if (!gradle.includes('ignoreAssetsPattern')) {
+  gradle = gradle.replace('android {', 'android {\n    androidResources { ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*~" }');
+  await writeFile(gradlePath, gradle);
+}
 if (!gradle.includes('jniLibs.useLegacyPackaging = true')) {
   gradle = gradle.replace('android {', 'android {\n    packaging { jniLibs.useLegacyPackaging = true }');
   await writeFile(gradlePath, gradle);
