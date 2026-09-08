@@ -140,6 +140,8 @@ try {
   console.log('PASS Android DSH 五项工具往返、流式回答、取消及取消后再次对话');
   socket.close();
   adb('shell', 'am', 'force-stop', 'app.aiebook.reader');
+  assert.ok(process.env.ANDROID_TEST_APK);
+  adb('install', '-r', process.env.ANDROID_TEST_APK);
   adb('shell', 'am', 'start', '-W', '-n', 'app.aiebook.reader/.MainActivity');
   await delay(10000);
   await connect();
@@ -155,7 +157,7 @@ try {
   })()`);
   await delay(1000);
   assert.match(await evaluate('document.querySelector("#reader-plugin-status").textContent'), /版本兼容/);
-  console.log('PASS Android 重启后配置保留与手动再次更新 DSH');
+  console.log('PASS Android 覆盖安装并重启后配置保留与手动再次更新 DSH');
 } finally {
   socket?.close();
   server.closeAllConnections();

@@ -17,7 +17,7 @@ for attempt in 1 2 3 4 5; do
   if adb pull /sdcard/startup.xml .build-cache/android-smoke/startup.xml; then break; fi
   sleep 3
 done
-node "$(dirname "$0")/android-dsh-test.mjs"
+ANDROID_TEST_APK="$apk" node "$(dirname "$0")/android-dsh-test.mjs"
 adb logcat -d > .build-cache/android-smoke/logcat.txt
 if ! grep -q 'android.webkit.WebView' .build-cache/android-smoke/startup.xml; then
   echo 'Android 首屏未加载 WebView'
