@@ -18,6 +18,9 @@ for package in packages:
         for name in libraries:
             data = archive.read(name)
             assert data[:6] == b'\x7fELF\x02\x01', f'不是 64 位小端 ELF：{name}'
+            assert struct.unpack_from('<H', data, 16)[0] == 3, f'不是可重定位 ELF：{name}'
+            if name.endswith('/libnode_runtime.so'):
+                assert struct.unpack_from('<Q', data, 24)[0] != 0, 'Node 缺少可执行入口'
             architecture = name.split('/')[1]
             assert struct.unpack_from('<H', data, 18)[0] == {'arm64-v8a': 183, 'x86_64': 62}[architecture]
             architectures.add(architecture)
