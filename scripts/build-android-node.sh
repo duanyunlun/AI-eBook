@@ -32,8 +32,8 @@ from pathlib import Path
 source = Path('deps/zlib/zlib.gyp')
 content = source.read_text()
 marker = "          'target_name': 'zlib',\n"
-assert content.count(marker) == 1
-prefix, target = content.split(marker)
+assert content.count(marker) == 2
+prefix, target = content.split(marker, 1)
 conditions = "          'conditions': [\n"
 assert conditions in target
 target = target.replace(conditions, conditions + "            ['OS==\"android\" and _toolset==\"target\"', {'sources': ['<(android_ndk_path)/sources/android/cpufeatures/cpu-features.c']}],\n", 1)
