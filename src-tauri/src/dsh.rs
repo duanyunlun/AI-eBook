@@ -165,7 +165,8 @@ fn update_managed_dsh(app: &AppHandle, registry: &str) -> Result<DshStatus, Stri
     let registry = validated_registry(registry)?;
     let root = runtime_root(&app)?;
     fs::create_dir_all(&root).map_err(|error| error.to_string())?;
-    let output = npm_command(app)?
+    let mut command = npm_command(app)?;
+    command
         .args([
             "install",
             "--no-audit",
@@ -182,12 +183,53 @@ fn update_managed_dsh(app: &AppHandle, registry: &str) -> Result<DshStatus, Stri
             &registry,
             "--proxy=false",
             "--https-proxy=false",
-        ])
+        ]);
+    let output = command
         .output()
         .map_err(|error| format!("无法启动 npm：{error}"))?;
     if !output.status.success() {
         let error = String::from_utf8_lossy(&output.stderr);
         return Err(error.trim().chars().take(500).collect());
+    }
+    #[cfg(target_os = "android")]
+    {
+        let sharp: serde_json::Value = serde_json::from_slice(
+            &fs::read(root.join("node_modules/sharp/package.json")).map_err(|error| error.to_string())?,
+        )
+        .map_err(|error| error.to_string())?;
+        let version = sharp["version"].as_str().ok_or("图片运行时版本缺失")?;
+        if version.is_empty() || !version.chars().all(|value| value.is_ascii_digit() || value == '.') {
+            return Err("图片运行时版本无效".into());
+        }
+        let output = command
+            .arg(format!("@img/sharp-wasm32@{version}"))
+            .output()
+            .map_err(|error| format!("无法安装图片运行时：{error}"))?;
+        if !output.status.success() {
+            return Err(String::from_utf8_lossy(&output.stderr)
+                .trim()
+                .chars()
+                .take(500)
+                .collect());
+        }
+        let entry = root.join("node_modules/@deepseek-ai/dsh-attachment-local/lib/index.js");
+        let mut source = fs::read_to_string(&entry).map_err(|error| error.to_string())?;
+        let boundary = app.path().app_data_dir().map_err(|_| "应用目录不可用")?;
+        let boundary = serde_json::to_string(&boundary.to_string_lossy()).map_err(|error| error.to_string())?;
+        let original = "await ensureDurableDirectory(home, parse(home).root);";
+        let replacement = format!("if (home !== {boundary} && !home.startsWith({boundary} + '/')) throw new Error('Attachment home is outside app data'); await ensureDurableDirectory(home, {boundary});");
+        for (before, after) in [
+            (original, replacement.as_str()),
+            ("await link(temporary, target);", "await rename(temporary, target);"),
+            ("await unlink(temporary);\n\t\tawait chmod(target, 256);", "await chmod(target, 256);"),
+        ] {
+            if source.matches(before).count() == 1 {
+                source = source.replacen(before, after, 1);
+            } else if !source.contains(after) {
+                return Err("当前 DSH 附件模块尚未适配 Android，请安装兼容版本".into());
+            }
+        }
+        fs::write(entry, source).map_err(|error| error.to_string())?;
     }
     get_dsh_status(app.clone())
 }

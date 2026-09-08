@@ -7,3 +7,5 @@
 /src-tauri/runtime/
 /.build-cache/
 /src-tauri/gen/android/
+/src-tauri/gen/schemas/android-schema.json
+/src-tauri/gen/schemas/mobile-schema.json

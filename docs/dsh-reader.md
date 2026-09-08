@@ -10,9 +10,11 @@ DSH 沿用 `<app-data>/dsh-runtime` 的 npm `--prefix` 安装，绝不使用全�
 
 Android 使用系统目录选择器导入同一格式的插件。Node 原生程序随 APK 安装在系统管理的原生库目录，npm JavaScript 首次使用时复制到私有目录；DSH 和阅读器插件仍可独立手动更新，升级 Node 引擎需要更新 App。Android 的 npm 安装禁用生命周期脚本，DSH 加载器通过其支持的 `--expose-internals` 路径工作，不依赖缺少 Android 构建的内部加载器扩展。不会自动启用其他 DSH 插件或系统命令工具。
 
+Android 手动安装/更新 DSH 时，还会安装与其 Sharp 版本一致的 `@img/sharp-wasm32`，继续支持图片附件，不要求手机编译原生图片库。使用的是 [Sharp 官方 WebAssembly 路径](https://sharp.pixelplumbing.com/install/#webassembly)，此路径不支持原生文字绘制与瓦片输出；阅读器不调用这两项能力。所有依赖使用用户选择的 npm 源，安装位置仍为应用私有目录。
+
 ## 协议与边界
 
-插件源码位于 `plugins/dsh-reader`，复用 DSH 的 Cordis、Agent、工具服务与模型适配器，不修改 DSH 源码。插件清单 `aiEbook.bridgeVersion` 当前为 1，`dshVersions` 明确列出验证过的版本。
+插件源码位于 `plugins/dsh-reader`，复用 DSH 的 Cordis、Agent、工具服务与模型适配器。Android 安装适配会对私有 DSH 附件模块应用受检查的兼容修正：目录持久化只同步到系统管理的应用数据目录，不再尝试读取 `/data/user/0` 等无权限父目录；内容哈希命名的附件通过原子重命名发布，替代 Android 禁止的硬链接。附件完整性验证、文件和应用目录内的同步仍保留。每次手动更新重新检查并应用，未知模块结构会报错，不修改全局安装。插件清单 `aiEbook.bridgeVersion` 当前为 1，`dshVersions` 明确列出验证过的版本。
 
 标准输入输出使用 JSON-RPC 2.0 单行 JSON：宿主发送 `reader/hello`、`reader/generate`；插件通知 `reader/reset`、`reader/delta`，以反向请求 `reader/tool` 等待宿主返回结果。生成响应 `{finished:true}` 表示完成。插件支持 `reader/cancel`；应用取消时直接终止对应子进程，并关闭待确认弹窗。宿主限制单帧 8 MB、通信或工具等待 180 秒；插件限制每次请求 16 次工具调用、20 个生成步骤。
 
@@ -44,4 +46,4 @@ node --test plugins/dsh-reader/integration.test.mjs
 
 启动开发服务后访问 `/src/reader-tools-ui.test.html`，验证完整章节检索、输出限制、跨书隔离、保存确认、取消和中断；该页面使用模拟持久化接口，不修改用户知识库。
 
-Android Release 流程运行 `scripts/android-dsh-test.mjs`，通过测试 APK 的 WebView 调试通道调用同一套应用接口，检查应用内 npm 安装、五项工具协议往返、流式输出、取消、重启后的密钥与运行时状态，以及手动再次更新。模型使用本机测试服务，不消耗用户 API 额度；工具回复使用测试数据，不代替真实书籍和用户确认界面的验收。调试通道只用于 Debug 测试包。
+Android Release 流程运行 `scripts/android-dsh-test.mjs`，通过测试 APK 的 WebView 调试通道调用同一套应用接口，检查应用内 npm 安装、图片附件、五项工具协议往返、流式输出、取消、重启后的密钥与运行时状态，以及手动再次更新。模型使用本机测试服务，不消耗用户 API 额度；工具回复使用测试数据，不代替真实书籍和用户确认界面的验收。调试通道只用于 Debug 测试包。

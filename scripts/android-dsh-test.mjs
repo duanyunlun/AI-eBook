@@ -6,6 +6,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8', timeout: 30000 }).trim();
 const provider = { protocol: 'open_ai_chat_completions', baseUrl: 'http://127.0.0.1:18763/v1', model: 'android-test', maxOutputTokens: 1024 };
 const requests = [];
+const testImage = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
 const toolNames = ['reading_context', 'read_page', 'search_book', 'search_knowledge', 'save_note'];
 const argumentsByTool = [{}, { page: 1 }, { query: '测试' }, { query: '测试' }, { title: '测试', body: '测试正文' }];
 const server = createServer(async (request, response) => {
@@ -138,7 +139,7 @@ try {
       });
       let error;
       try {
-        await api.invoke('generate_ai', { request: { requestId, provider: ${JSON.stringify(provider)}, messages: [{ role: 'user', content: [{ type: 'text', text: '检索测试内容' }] }] }, onEvent: '__CHANNEL__:' + callback });
+        await api.invoke('generate_ai', { request: { requestId, provider: ${JSON.stringify(provider)}, messages: [{ role: 'user', content: [{ type: 'text', text: '检索测试内容' }, { type: 'image', media_type: 'image/png', data: ${JSON.stringify(testImage)} }] }] }, onEvent: '__CHANNEL__:' + callback });
       } catch (failure) { error = String(failure); }
       finally { api.unregisterCallback(callback); }
       return { tools, events, error };
@@ -154,7 +155,8 @@ try {
     }
   }
   assert.ok(requests.some(request => JSON.stringify(request).includes('Android 测试证据')));
-  console.log('PASS Android DSH 五项工具往返、流式回答、取消及取消后再次对话');
+  assert.ok(requests.some(request => request.messages.some(message => Array.isArray(message.content) && message.content.some(part => part.type === 'image_url' && part.image_url?.url?.startsWith('data:image/')))));
+  console.log('PASS Android DSH 图片附件、五项工具往返、流式回答、取消及取消后再次对话');
   socket.close();
   adb('shell', 'am', 'force-stop', 'app.aiebook.reader');
   assert.ok(process.env.ANDROID_TEST_APK);
