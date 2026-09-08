@@ -71,6 +71,17 @@ try {
   await connect();
   assert.equal(await evaluate('document.querySelector("#empty-open")?.textContent'), '打开书籍');
   assert.equal((await invoke('platform_info')).aiAvailable, true);
+  const viewport = await evaluate('document.querySelector("meta[name=viewport]").content');
+  try {
+    await evaluate('document.querySelector("meta[name=viewport]").content = "width=1024, initial-scale=1"');
+    await delay(300);
+    assert.ok(await evaluate('innerWidth > 700 && matchMedia("(hover: none)").matches'));
+    assert.equal(await evaluate('document.querySelector("#left-drawer-toggle").getBoundingClientRect().width'), 44);
+    assert.notEqual(await evaluate('getComputedStyle(document.querySelector("#annotation-close")).display'), 'none');
+    console.log('PASS Android 宽屏触控菜单与关闭入口');
+  } finally {
+    await evaluate(`document.querySelector('meta[name=viewport]').content = ${JSON.stringify(viewport)}`);
+  }
   await evaluate(`(() => {
     document.querySelector('#open-settings').click();
     document.querySelector('[data-settings-tab="ai"]').click();
