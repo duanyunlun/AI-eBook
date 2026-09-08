@@ -29,7 +29,7 @@ Android 没有可直接执行的桌面 Node/npm。当前明确禁用 AI 配置�
 
 ## 发布与验证
 
-`.github/workflows/release.yml` 由 `workflow_dispatch` 触发，输入已经存在的预发布标签。各平台从同一标签构建，独立上传安装包到该 Release，单个任务失败不取消其他平台。Android 项目由 Tauri CLI 初始化，并加入 `src-tauri/android/BookPickerPlugin.kt`，不提交本机 SDK 路径或生成目录。
+`.github/workflows/release.yml` 由 `workflow_dispatch` 触发，输入已经存在的预发布标签。各平台从同一标签构建，独立上传安装包到该 Release，单个任务失败不取消其他平台。Android 项目由 Tauri CLI 初始化，并加入 `src-tauri/android/BookPickerPlugin.kt`，不提交本机 SDK 路径或生成目录。Android 编译和模拟器验收使用独立构建机，避免磁盘不足；`android_only` 可单独重试移动端，`android_artifact_run_id` 可复用同一标签的已有 APK 产物。验收脚本使用本次工作流版本，应用仍来自指定标签。
 
 桌面本地复现：
 
@@ -42,5 +42,15 @@ npm run tauri -- build --config src-tauri/tauri.desktop.conf.json
 ```
 
 验证顺序：安装并离线启动；导入书籍；翻页后重开；保存、编辑、取消删除和确认删除批注；知识库仍可查看；桌面再手动安装 DSH 并发送测试问题。发布资产应附 SHA256 校验清单，Android 安装包需通过签名校验。出现失败时以 Actions 日志和 Release 限制说明为准，不宣称所有平台都已真机验收。
+
+## 2026-09-08 验收结果
+
+[下载本轮预览版](https://github.com/duanyunlun/AI-eBook/releases/tag/v0.1.0-preview.20260908.2)，应用源码标签为 `v0.1.0-preview.20260908.2`。
+
+- [桌面构建](https://github.com/duanyunlun/AI-eBook/actions/runs/34172648160)：四个平台任务成功，产出五个安装包；各任务通过 17 项前端单测、6 项 Rust 测试及真实 DSH 子进程与模拟模型的插件集成测试。
+- macOS 本机检查：两个下载 DMG 的完整性签名校验通过；Apple Silicon 包内私有 Node 可执行。macOS 应用首屏和窄屏界面另有本地检查。
+- [Android 验收](https://github.com/duanyunlun/AI-eBook/actions/runs/34177110964)：Android 15 x86_64 模拟器安装、启动、WebView 与异常日志检查通过；截图确认“打开书籍”入口显示。发布的 arm64 APK 通过签名校验，但尚无 arm64 真机验证。
+- 曾在资源紧张的模拟器冷启动时出现无响应；增加模拟器资源并等待系统启动稳定后复测通过。不能据此保证低端真机的启动表现。
+- Windows/Linux 尚未人工安装验收；Android 文件导入、批注持久化及长时间阅读仍需真机测试。当前移动版不能使用 DSH/AI，iOS 未打包。
 
 参考：[Tauri 移动端准备](https://v2.tauri.app/start/prerequisites/)、[Android 文件访问差异](https://v2.tauri.app/plugin/dialog/)、[Node 官方发布清单](https://nodejs.org/dist/index.json)。
