@@ -10,6 +10,10 @@ on:
         description: Retry Android without rebuilding desktop packages
         type: boolean
         default: false
+      desktop_only:
+        description: Build desktop packages when Android is verified locally
+        type: boolean
+        default: false
       validation_only:
         description: Build and verify without uploading to a Release
         type: boolean
@@ -79,13 +83,13 @@ jobs:
           prerelease: true
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --config src-tauri/tauri.desktop.conf.json
   android_node:
-    if: ${{ inputs.android_artifact_run_id == '' }}
+    if: ${{ !inputs.desktop_only && inputs.android_artifact_run_id == '' }}
     uses: ./.github/workflows/node-android.yml
     with:
       ref: ${{ inputs.tag }}
   android:
     needs: android_node
-    if: ${{ inputs.android_artifact_run_id == '' }}
+    if: ${{ !inputs.desktop_only && inputs.android_artifact_run_id == '' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
@@ -141,7 +145,7 @@ jobs:
           path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
   android_verify:
     needs: android
-    if: ${{ !cancelled() && (needs.android.result == 'success' || inputs.android_artifact_run_id != '') }}
+    if: ${{ !cancelled() && !inputs.desktop_only && (needs.android.result == 'success' || inputs.android_artifact_run_id != '') }}
     runs-on: ubuntu-22.04
     timeout-minutes: 35
     steps:

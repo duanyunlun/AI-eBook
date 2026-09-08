@@ -37,6 +37,8 @@ Android 从官方 Node 24.20.0 源码交叉编译 arm64/x64 运行时，使用 A
 
 Android 本机单架构调试时，将对应 Node 构建产物放入 `.build-cache/android-node/android-node-arm64`（或 `android-node-x64`），初始化 Android 项目后执行 `node scripts/prepare-android.mjs arm64`（或 `x64`）。不传参数时仍准备两种架构，供发布流程使用。
 
+Apple Silicon 本机也可设置 `NDK_HOME` 后运行 `AI_EBOOK_NODE_JOBS=10 bash scripts/build-android-node.sh arm64`，产物位于 `.build-cache/android-node/arm64`。脚本使用 Xcode 宿主工具、NDK Android 编译器，并修正上游 GYP 对宿主系统的判断；只构建 Node，不构建上游 C++ 测试程序。将产物复制到上一段指定目录后构建 APK。Android 本机验收通过时，可使用 `desktop_only=true` 单独构建桌面安装包，再将同一提交的已验证 APK 上传到草稿 Release；此选项本身不代表 Android 验收通过。
+
 桌面本地复现：
 
 ```sh
@@ -49,7 +51,7 @@ npm run tauri -- build --config src-tauri/tauri.desktop.conf.json
 
 验证顺序：安装并离线启动；导入书籍；翻页后重开；保存、编辑、取消删除和确认删除批注；知识库仍可查看；桌面再手动安装 DSH 并发送测试问题。发布资产应附 SHA256 校验清单，Android 安装包需通过签名校验。出现失败时以 Actions 日志和 Release 限制说明为准，不宣称所有平台都已真机验收。
 
-## 2026-09-08 验收结果
+## 2026-09-08 早间旧版验收结果（.2）
 
 [下载本轮预览版](https://github.com/duanyunlun/AI-eBook/releases/tag/v0.1.0-preview.20260908.2)，应用源码标签为 `v0.1.0-preview.20260908.2`。
 
