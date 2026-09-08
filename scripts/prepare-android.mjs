@@ -16,6 +16,10 @@ await mkdir(assets, { recursive: true });
 for (const name of ['npm', 'version.txt', 'LICENSE-Node.txt']) {
   await cp(resolve(artifacts, 'android-node-arm64', name), resolve(assets, name), { recursive: true });
 }
+assert.ok(process.env.ANDROID_HOME);
+const cpuFeatures = await readFile(resolve(process.env.ANDROID_HOME, 'ndk/27.2.12479018/sources/android/cpufeatures/cpu-features.c'), 'utf8');
+assert.ok(cpuFeatures.startsWith('/*') && cpuFeatures.includes('*/'));
+await writeFile(resolve(assets, 'LICENSE-Android-cpufeatures.txt'), cpuFeatures.slice(0, cpuFeatures.indexOf('*/') + 2));
 await cp('src-tauri/android/BookPickerPlugin.kt', resolve(app, 'src/main/java/app/aiebook/reader/BookPickerPlugin.kt'));
 const gradlePath = resolve(app, 'build.gradle.kts');
 let gradle = await readFile(gradlePath, 'utf8');
