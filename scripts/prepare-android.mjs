@@ -28,6 +28,19 @@ if (!gradle.includes('jniLibs.useLegacyPackaging = true')) {
   gradle = gradle.replace('android {', 'android {\n    packaging { jniLibs.useLegacyPackaging = true }');
   await writeFile(gradlePath, gradle);
 }
+if (!gradle.includes('AI_EBOOK_ANDROID_KEYSTORE')) {
+  gradle = gradle.replace('android {', `android {
+    System.getenv("AI_EBOOK_ANDROID_KEYSTORE")?.let { path ->
+        signingConfigs.getByName("debug") {
+            storeFile = file(path)
+            storeType = "PKCS12"
+            storePassword = System.getenv("AI_EBOOK_ANDROID_STORE_PASSWORD")
+            keyAlias = "ai-ebook-preview"
+            keyPassword = storePassword
+        }
+    }`);
+  await writeFile(gradlePath, gradle);
+}
 const manifestPath = resolve(app, 'src/main/AndroidManifest.xml');
 let manifest = await readFile(manifestPath, 'utf8');
 assert.ok(manifest.includes('<application'));

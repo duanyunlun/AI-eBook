@@ -120,10 +120,19 @@ jobs:
           pattern: android-node-*
           path: .build-cache/android-node
       - run: node scripts/prepare-android.mjs
+      - name: Prepare preview signing key
+        env:
+          ANDROID_PREVIEW_KEYSTORE: ${{ secrets.ANDROID_PREVIEW_KEYSTORE }}
+        run: |
+          test -n "$ANDROID_PREVIEW_KEYSTORE"
+          umask 077
+          printf '%s' "$ANDROID_PREVIEW_KEYSTORE" | base64 --decode > .build-cache/android-preview.p12
       - name: Build test APK
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
           RUSTFLAGS: -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384
+          AI_EBOOK_ANDROID_KEYSTORE: ${{ github.workspace }}/.build-cache/android-preview.p12
+          AI_EBOOK_ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_PREVIEW_STORE_PASSWORD }}
         run: npm run tauri -- android build --debug --apk --split-per-abi --target aarch64 x86_64 --ci
       - run: python3 scripts/check-android-apks.py
       - uses: actions/upload-artifact@v4

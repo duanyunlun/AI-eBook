@@ -11,7 +11,9 @@
 | Android 8+ arm64 | 测试 APK | 阅读、记录、批注、知识库、应用私有 DSH 与阅读器插件 |
 | iOS | 本轮不打包 | 尚未适配及验证 |
 
-安装包生成不等于真机验证通过。Android 使用测试签名，不用于正式商店发布；后续换签名可能需要卸载，卸载会删除应用私有数据，当前不要在 Android 预览版中存放唯一副本。macOS 包使用 ad-hoc 完整性签名，没有 Developer ID 签名或 Apple 公证；Windows 未签名，系统可能显示未知开发者提示。
+安装包生成不等于真机验证通过。Android 使用固定预览签名，供测试和后续覆盖升级，不用于正式商店发布；旧 `.2` 版本使用临时签名，无法直接覆盖升级，需先备份数据再卸载旧包。卸载会删除应用私有数据，预览版中不要存放唯一副本。macOS 包使用 ad-hoc 完整性签名，没有 Developer ID 签名或 Apple 公证；Windows 未签名，系统可能显示未知开发者提示。
+
+Android 固定签名通过 Actions Secrets `ANDROID_PREVIEW_KEYSTORE`（PKCS12 的 Base64）与 `ANDROID_PREVIEW_STORE_PASSWORD` 注入，别名为 `ai-ebook-preview`。私钥和密码不进入 Git、安装包或构建产物。证书 SHA256 为 `82d9aeaf645261256b275deb3f41b745aa14eb4815320d4c59c61c1878dadb41`，构建后校验签名、CPU 架构和 16 KB ELF 对齐。不要随意重新生成签名，否则会破坏覆盖升级。
 
 ## 桌面 DSH
 

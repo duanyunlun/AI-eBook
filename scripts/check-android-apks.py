@@ -1,11 +1,16 @@
 from pathlib import Path
+import os
 import struct
+import subprocess
 import zipfile
 
 packages = list(Path('src-tauri/gen/android/app/build/outputs/apk').rglob('*.apk'))
 assert len(packages) >= 2, '缺少 Android 架构安装包'
 architectures = set()
 for package in packages:
+    signer = Path(os.environ['ANDROID_HOME']) / 'build-tools/35.0.0/apksigner'
+    certificate = subprocess.check_output([str(signer), 'verify', '--print-certs', str(package)], text=True)
+    assert 'Signer #1 certificate SHA-256 digest: 82d9aeaf645261256b275deb3f41b745aa14eb4815320d4c59c61c1878dadb41' in certificate, 'APK 未使用固定预览签名'
     with zipfile.ZipFile(package) as archive:
         libraries = [name for name in archive.namelist() if name.startswith('lib/') and name.endswith('.so')]
         assert any(name.endswith('/libnode_runtime.so') for name in libraries), 'APK 缺少 Node'
@@ -21,5 +26,5 @@ for package in packages:
             segments = [struct.unpack_from('<IIQQQQQQ', data, offset + index * size) for index in range(count)]
             loads = [segment for segment in segments if segment[0] == 1]
             assert loads and all(segment[7] >= 16384 and (segment[3] - segment[2]) % 16384 == 0 for segment in loads), f'未按 16 KB 对齐：{name}'
-        print(f'PASS {package.name}：Node、阅读器架构与 16 KB ELF 对齐')
+        print(f'PASS {package.name}：固定签名、Node、阅读器架构与 16 KB ELF 对齐')
 assert architectures == {'arm64-v8a', 'x86_64'}
