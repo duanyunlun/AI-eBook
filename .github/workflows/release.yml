@@ -123,6 +123,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag }}
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: .build-cache/ci
+          sparse-checkout: scripts/android-smoke.sh
+          sparse-checkout-cone-mode: false
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -149,7 +155,7 @@ jobs:
           target: google_apis
           emulator-boot-timeout: 300
           disable-animations: true
-          script: bash scripts/android-smoke.sh
+          script: bash .build-cache/ci/scripts/android-smoke.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
