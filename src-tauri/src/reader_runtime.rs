@@ -266,6 +266,8 @@ pub(crate) async fn generate(
     let mut command = Command::new(dsh::node_path(app)?);
     #[cfg(windows)]
     command.creation_flags(0x08000000);
+    #[cfg(target_os = "android")]
+    command.env("HOME", app.path().app_data_dir().map_err(|_| "应用目录不可用")?);
     let mut child = command
         .arg("--expose-internals")
         .arg(runtime.join("node_modules/@deepseek-ai/dsh/lib/bin.js"))

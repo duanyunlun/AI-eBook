@@ -119,7 +119,10 @@ fn npm_command(app: &AppHandle) -> Result<Command, String> {
         app.path().app_cache_dir().map_err(|_| "缓存目录不可用")?,
     );
     #[cfg(target_os = "android")]
-    command.arg("--ignore-scripts");
+    {
+        command.arg("--ignore-scripts");
+        command.env("HOME", app.path().app_data_dir().map_err(|_| "应用目录不可用")?);
+    }
     for key in [
         "HTTP_PROXY",
         "HTTPS_PROXY",
