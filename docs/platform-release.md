@@ -63,12 +63,15 @@ npm run tauri -- build --config src-tauri/tauri.desktop.conf.json
 
 ## 2026-09-08 Android DSH 本机验收
 
+[下载新版 .3](https://github.com/duanyunlun/AI-eBook/releases/tag/v0.1.0-preview.20260908.3)。[桌面发布构建](https://github.com/duanyunlun/AI-eBook/actions/runs/34224122660)的 macOS arm64/x64、Windows x64、Linux x64 四项任务均通过，包含各自单元测试和真实 DSH 子进程集成测试；与本机 Android APK 一并发布六个安装包及校验清单。
+
 - Android 15 arm64 模拟器：从空应用数据安装，通过私有 npm/DSH 安装、默认插件、安全凭据存储及密文恢复检查。
 - 同一应用接口通过图片附件、五项工具协议往返、流式回答、取消和取消后再次对话；模型为本机测试服务，工具回复为测试数据。
 - 固定签名覆盖安装后，密钥、模型配置和知识记录保留，再次手动更新 DSH 成功；启动日志未发现应用崩溃或 ANR。
 - APK 内 Node/npm 资源逐文件一致，原生程序架构、可执行入口、签名和 16 KB ELF 对齐检查通过。16 KB 真机尚未验证。
 - 本机使用国内 Gradle/npm 镜像完成构建及安装验证。Android 按应用私有目录、Keystore 和平台文件操作规则适配，没有增加存储权限。
 - 真机上的文件选择、长篇阅读、系统后台回收及界面细节仍需用户验证；不把模拟器结果等同于所有手机验收通过。
+- 已观察到模拟器设置页顶部与系统状态栏重叠，移动端布局仍需继续调整。
 
 ## 2026-09-08 早间旧版验收结果（.2）
 
