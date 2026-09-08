@@ -123,7 +123,9 @@ jobs:
       - name: Build test APK
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
+          RUSTFLAGS: -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384
         run: npm run tauri -- android build --debug --apk --split-per-abi --target aarch64 x86_64 --ci
+      - run: python3 scripts/check-android-apks.py
       - uses: actions/upload-artifact@v4
         with:
           name: android-built-apks
