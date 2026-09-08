@@ -71,9 +71,26 @@ try {
   await connect();
   assert.equal(await evaluate('document.querySelector("#empty-open")?.textContent'), '打开书籍');
   assert.equal((await invoke('platform_info')).aiAvailable, true);
-  await invoke('save_ai_api_key', { provider, apiKey: 'android-test-only' });
+  await evaluate(`(() => {
+    document.querySelector('#open-settings').click();
+    document.querySelector('[data-settings-tab="ai"]').click();
+    document.querySelector('#ai-base-url').value = ${JSON.stringify(provider.baseUrl)};
+    document.querySelector('#ai-model').value = ${JSON.stringify(provider.model)};
+    document.querySelector('#ai-api-key').value = 'android-test-only';
+    document.querySelector('#ai-settings-form').requestSubmit();
+  })()`);
+  for (let attempt = 0; attempt < 20; attempt++) {
+    if (await evaluate('document.querySelector("#ai-settings-status").textContent === "已保存"')) break;
+    await delay(500);
+  }
+  assert.equal(await evaluate('document.querySelector("#ai-settings-status").textContent'), '已保存');
+  assert.equal(await evaluate('document.querySelector("#ai-api-key").value'), '');
+  assert.equal(await evaluate('JSON.stringify(localStorage).includes("android-test-only")'), false);
   assert.equal(await invoke('has_ai_api_key', { provider }), true);
   assert.equal(await invoke('has_ai_api_key', { provider: { ...provider, baseUrl: 'https://unused.invalid/v1' } }), false);
+  const credentialFile = adb('shell', 'run-as', 'app.aiebook.reader', 'ls', 'no_backup/credentials');
+  assert.match(credentialFile, /^[a-f0-9]{64}$/);
+  assert.equal(adb('shell', 'run-as', 'app.aiebook.reader', 'cat', `no_backup/credentials/${credentialFile}`).includes('android-test-only'), false);
   const registry = 'https://registry.npmjs.org/';
   const available = await invoke('check_dsh_update', { registry });
   assert.ok(available.latestVersion);
@@ -130,6 +147,14 @@ try {
   assert.equal((await invoke('get_dsh_status')).version, installed.version);
   assert.equal((await invoke('get_reader_runtime_status')).compatible, true);
   assert.equal((await invoke('update_dsh', { registry })).installed, true);
+  assert.equal(await evaluate('JSON.parse(localStorage.getItem("ai-provider-settings")).model'), provider.model);
+  await evaluate(`(() => {
+    document.querySelector('#open-settings').click();
+    document.querySelector('[data-settings-tab="ai"]').click();
+    document.querySelector('#dsh-status').scrollIntoView();
+  })()`);
+  await delay(1000);
+  assert.match(await evaluate('document.querySelector("#reader-plugin-status").textContent'), /版本兼容/);
   console.log('PASS Android 重启后配置保留与手动再次更新 DSH');
 } finally {
   socket?.close();
