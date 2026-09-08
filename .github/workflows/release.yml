@@ -10,8 +10,13 @@ on:
         description: Retry Android without rebuilding desktop packages
         type: boolean
         default: false
+      android_artifact_run_id:
+        description: Optional existing run containing android-built-apks for this tag
+        type: string
+        default: ''
 permissions:
   contents: write
+  actions: read
 jobs:
   desktop:
     if: ${{ !inputs.android_only }}
@@ -70,6 +75,7 @@ jobs:
           prerelease: true
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --config src-tauri/tauri.desktop.conf.json
   android:
+    if: ${{ inputs.android_artifact_run_id == '' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
@@ -108,9 +114,29 @@ jobs:
         with:
           name: android-built-apks
           path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+  android_verify:
+    needs: android
+    if: ${{ !cancelled() && (needs.android.result == 'success' || inputs.android_artifact_run_id != '') }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-built-apks
+          path: src-tauri/gen/android/app/build/outputs/apk
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.android_artifact_run_id || github.run_id }}
+      - run: sdkmanager 'build-tools;35.0.0'
       - name: Enable KVM for emulator
         run: |
-          rm -rf src-tauri/target src-tauri/gen/android/app/build/intermediates node_modules
           df -h .
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
@@ -121,7 +147,6 @@ jobs:
           api-level: 35
           arch: x86_64
           target: google_apis
-          disk-size: 2048M
           emulator-boot-timeout: 300
           disable-animations: true
           script: bash scripts/android-smoke.sh
