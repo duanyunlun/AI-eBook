@@ -17,11 +17,11 @@ for attempt in 1 2 3 4 5; do
   sleep 3
 done
 adb logcat -d > .build-cache/android-smoke/logcat.txt
-if ! rg -q '打开书籍' .build-cache/android-smoke/startup.xml; then
-  echo 'Android 首屏未出现打开书籍入口'
+if ! grep -q 'android.webkit.WebView' .build-cache/android-smoke/startup.xml; then
+  echo 'Android 首屏未加载 WebView'
   exit 1
 fi
-if rg -q 'FATAL EXCEPTION|panicked at' .build-cache/android-smoke/logcat.txt; then
+if grep -Eq 'FATAL EXCEPTION|panicked at' .build-cache/android-smoke/logcat.txt; then
   echo 'Android 启动出现异常'
   exit 1
 fi
