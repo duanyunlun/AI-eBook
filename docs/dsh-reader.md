@@ -2,11 +2,13 @@
 
 ## 使用与更新
 
-DSH 是唯一 AI 运行时。先在设置的 AI 页手动检查并安装 DSH，再配置模型并测试连接。伴读、翻译、解释、总结和测试连接均经过 DSH，没有直连入口或回退路径；旧版本保存的运行时选择不再读取。不自动安装或更新运行时。需要本机 Node.js/npm，当前集成验证使用 Node.js 24 与 `@deepseek-ai/dsh@0.1.2-rc.1`。
+DSH 是唯一 AI 运行时。先在设置的 AI 页手动检查并安装 DSH，再配置模型并测试连接。伴读、翻译、解释、总结和测试连接均经过 DSH，没有直连入口或回退路径；旧版本保存的运行时选择不再读取。不自动安装或更新运行时。桌面和 Android 安装包均内置私有 Node.js/npm，不要求用户全局安装；当前版本使用 Node.js 24.20.0 与 `@deepseek-ai/dsh@0.1.2-rc.1`。
 
 DSH 沿用 `<app-data>/dsh-runtime` 的 npm `--prefix` 安装，绝不使用全局 DSH。阅读器插件位于 `<app-data>/dsh-reader/plugins/<内容哈希>`，当前选择记录在 `active-plugin.json`；每次请求使用临时 reader profile，正常结束或取消时清理。应用崩溃可能遗留请求临时目录。
 
 应用默认附带阅读器插件，无需另行导入；未选择更新版本时，首次 DSH 请求自动部署内置插件。“更新阅读器插件”选择含 `package.json`、`index.mjs`、`cordis.patch.yml` 的可信兼容阅读器插件目录，不支持任意 DSH 插件；每个文件最多 2 MB。更新插件不更新 DSH，不影响运行中的旧插件，下次请求生效。“恢复内置插件”恢复应用附带版本。插件是可信 Node.js 代码，**不是操作系统沙箱**，不要导入不可信来源。运行时仍由用户手动更新；未来 DSH 版本不在插件兼容清单时拒绝运行，需配套更新插件。
+
+Android 使用系统目录选择器导入同一格式的插件。Node 原生程序随 APK 安装在系统管理的原生库目录，npm JavaScript 首次使用时复制到私有目录；DSH 和阅读器插件仍可独立手动更新，升级 Node 引擎需要更新 App。Android 的 npm 安装禁用生命周期脚本，DSH 加载器通过其支持的 `--expose-internals` 路径工作，不依赖缺少 Android 构建的内部加载器扩展。不会自动启用其他 DSH 插件或系统命令工具。
 
 ## 协议与边界
 
@@ -15,6 +17,8 @@ DSH 沿用 `<app-data>/dsh-runtime` 的 npm `--prefix` 安装，绝不使用全�
 标准输入输出使用 JSON-RPC 2.0 单行 JSON：宿主发送 `reader/hello`、`reader/generate`；插件通知 `reader/reset`、`reader/delta`，以反向请求 `reader/tool` 等待宿主返回结果。生成响应 `{finished:true}` 表示完成。插件支持 `reader/cancel`；应用取消时直接终止对应子进程，并关闭待确认弹窗。宿主限制单帧 8 MB、通信或工具等待 180 秒；插件限制每次请求 16 次工具调用、20 个生成步骤。
 
 密钥由 Rust 从系统凭据库读取，只通过子进程环境传递，不出现在命令行、profile 或前端工具参数中。插件仅通过官方模型适配器访问用户配置的模型端点；远程地址要求 HTTPS。没有接入通用网页检索、Shell、任意文件读取或删除工具。
+
+Android 使用 Android Keystore 的 AES-GCM 密钥加密 API Key，密文保存在应用不参与备份的私有目录，按模型服务地址隔离。密文原子写入；卸载应用会删除密钥和相关数据。前端只获得“是否已保存”，不会读回已保存的 API Key。
 
 | 工具 | 范围 |
 | --- | --- |
@@ -39,3 +43,5 @@ node --test plugins/dsh-reader/integration.test.mjs
 集成测试启动真实 DSH 与本机模拟 OpenAI Chat SSE 服务，验证工具调用、结果回传和等待工具时取消，不使用用户密钥。测试 profile 在项目忽略目录内自动创建和清理。其他模型协议复用官方适配器，但尚未逐一完成真实服务端验收。
 
 启动开发服务后访问 `/src/reader-tools-ui.test.html`，验证完整章节检索、输出限制、跨书隔离、保存确认、取消和中断；该页面使用模拟持久化接口，不修改用户知识库。
+
+Android Release 流程运行 `scripts/android-dsh-test.mjs`，通过测试 APK 的 WebView 调试通道调用同一套应用接口，检查应用内 npm 安装、五项工具协议往返、流式输出、取消、重启后的密钥与运行时状态，以及手动再次更新。模型使用本机测试服务，不消耗用户 API 额度；工具回复使用测试数据，不代替真实书籍和用户确认界面的验收。调试通道只用于 Debug 测试包。

@@ -23,8 +23,7 @@ use zeroize::Zeroizing;
 
 #[cfg(desktop)]
 const AI_KEY_SERVICE: &str = "app.aiebook.reader";
-const MOBILE_AI_UNAVAILABLE: &str =
-    "Android 预览版尚未集成 DSH 运行时，暂不支持 AI；阅读、记录和批注可离线使用";
+const MOBILE_AI_UNAVAILABLE: &str = "此平台尚未集成 DSH 运行时";
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -91,7 +90,10 @@ fn key_entry(provider: &PublicProviderConfig) -> Result<Entry, String> {
 }
 
 #[cfg(desktop)]
-fn read_ai_api_key(provider: &PublicProviderConfig) -> Result<String, String> {
+async fn read_ai_api_key(
+    _app: &tauri::AppHandle,
+    provider: &PublicProviderConfig,
+) -> Result<String, String> {
     match key_entry(provider)?.get_password() {
         Ok(api_key) => Ok(api_key),
         Err(keyring::Error::NoEntry) => Ok(String::new()),
@@ -100,8 +102,11 @@ fn read_ai_api_key(provider: &PublicProviderConfig) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn has_ai_api_key(provider: PublicProviderConfig) -> Result<bool, String> {
-    Ok(!read_ai_api_key(&provider)?.is_empty())
+async fn has_ai_api_key(
+    app: tauri::AppHandle,
+    provider: PublicProviderConfig,
+) -> Result<bool, String> {
+    Ok(!Zeroizing::new(read_ai_api_key(&app, &provider).await?).is_empty())
 }
 
 #[tauri::command]
@@ -115,12 +120,47 @@ fn save_ai_api_key(provider: PublicProviderConfig, api_key: String) -> Result<()
         .map_err(|error| error.to_string())
 }
 
-#[cfg(mobile)]
-fn read_ai_api_key(_provider: &PublicProviderConfig) -> Result<String, String> {
+#[cfg(target_os = "android")]
+async fn read_ai_api_key(
+    app: &tauri::AppHandle,
+    provider: &PublicProviderConfig,
+) -> Result<String, String> {
+    mobile::credential(
+        app.clone(),
+        provider.base_url.trim().trim_end_matches('/').into(),
+        None,
+    )
+    .await
+}
+
+#[cfg(target_os = "android")]
+#[tauri::command]
+async fn save_ai_api_key(
+    app: tauri::AppHandle,
+    provider: PublicProviderConfig,
+    api_key: String,
+) -> Result<(), String> {
+    if api_key.trim().is_empty() {
+        return Err("API Key 不能为空".into());
+    }
+    mobile::credential(
+        app,
+        provider.base_url.trim().trim_end_matches('/').into(),
+        Some(api_key.trim().into()),
+    )
+    .await
+    .map(|_| ())
+}
+
+#[cfg(target_os = "ios")]
+async fn read_ai_api_key(
+    _app: &tauri::AppHandle,
+    _provider: &PublicProviderConfig,
+) -> Result<String, String> {
     Err(MOBILE_AI_UNAVAILABLE.into())
 }
 
-#[cfg(mobile)]
+#[cfg(target_os = "ios")]
 #[tauri::command]
 fn save_ai_api_key(provider: PublicProviderConfig, api_key: String) -> Result<(), String> {
     let _ = (provider, api_key);
@@ -129,7 +169,7 @@ fn save_ai_api_key(provider: PublicProviderConfig, api_key: String) -> Result<()
 
 #[tauri::command]
 fn platform_info() -> serde_json::Value {
-    serde_json::json!({"mobile": cfg!(mobile), "aiAvailable": cfg!(desktop)})
+    serde_json::json!({"mobile": cfg!(mobile), "aiAvailable": cfg!(any(desktop, target_os = "android"))})
 }
 
 #[tauri::command]
@@ -143,7 +183,7 @@ async fn generate_ai(
     if request.provider.model.trim().is_empty() {
         return Err("请先在设置中配置 AI 模型".into());
     }
-    let api_key = Zeroizing::new(read_ai_api_key(&request.provider)?);
+    let api_key = Zeroizing::new(read_ai_api_key(&app, &request.provider).await?);
     request.provider.max_output_tokens = request.provider.max_output_tokens.clamp(1, 131_072);
     let (abort_handle, abort_registration) = AbortHandle::new_pair();
     {

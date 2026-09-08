@@ -134,8 +134,9 @@ fn install_files(
 }
 
 #[tauri::command]
-#[cfg(desktop)]
+#[cfg(any(desktop, target_os = "android"))]
 pub async fn import_reader_plugin(app: AppHandle) -> Result<Option<ReaderRuntimeStatus>, String> {
+    #[cfg(desktop)]
     let Some(folder) = rfd::AsyncFileDialog::new()
         .set_title("选择可信的阅读器插件目录")
         .pick_folder()
@@ -143,7 +144,16 @@ pub async fn import_reader_plugin(app: AppHandle) -> Result<Option<ReaderRuntime
     else {
         return Ok(None);
     };
+    #[cfg(desktop)]
     let root = folder.path();
+    #[cfg(target_os = "android")]
+    let Some(folder) = crate::mobile::pick_plugin(app.clone()).await? else {
+        return Ok(None);
+    };
+    #[cfg(target_os = "android")]
+    let _temporary = RequestFiles(folder.clone());
+    #[cfg(target_os = "android")]
+    let root = folder.as_path();
     let manifest = read_manifest(&root.join("package.json"))?;
     if manifest["name"] != "ai-ebook-dsh-reader" || manifest["aiEbook"]["bridgeVersion"] != 1 {
         return Err("不是兼容的阅读器插件".into());
@@ -174,7 +184,7 @@ pub async fn import_reader_plugin(app: AppHandle) -> Result<Option<ReaderRuntime
     get_reader_runtime_status(app).map(Some)
 }
 
-#[cfg(mobile)]
+#[cfg(target_os = "ios")]
 #[tauri::command]
 pub async fn import_reader_plugin() -> Result<Option<ReaderRuntimeStatus>, String> {
     Err(crate::MOBILE_AI_UNAVAILABLE.into())
@@ -257,10 +267,15 @@ pub(crate) async fn generate(
     #[cfg(windows)]
     command.creation_flags(0x08000000);
     let mut child = command
+        .arg("--expose-internals")
         .arg(runtime.join("node_modules/@deepseek-ai/dsh/lib/bin.js"))
         .args(["--profile", "reader", "--patch"])
         .arg(plugin.join("cordis.patch.yml"))
         .env("DSH_HOME", &request_home)
+        .env(
+            "TMPDIR",
+            app.path().app_cache_dir().map_err(|_| "缓存目录不可用")?,
+        )
         .env("AI_EBOOK_DSH_PACKAGE", &package)
         .env(
             "AI_EBOOK_API_KEY",

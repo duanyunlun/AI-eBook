@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use serde_json::json;
 use std::path::PathBuf;
 use tauri::{
     AppHandle, Manager, Wry,
@@ -6,6 +7,72 @@ use tauri::{
 };
 
 struct BookPicker(PluginHandle<Wry>);
+
+#[derive(Deserialize)]
+pub struct RuntimePaths {
+    pub node: PathBuf,
+    pub npm: PathBuf,
+}
+
+pub fn runtime_paths(app: &AppHandle) -> Result<RuntimePaths, String> {
+    app.state::<BookPicker>()
+        .0
+        .run_mobile_plugin("runtimePaths", ())
+        .map_err(|_| "无法准备应用内置 Node 运行时，请重新安装完整安装包".into())
+}
+
+pub async fn credential(
+    app: AppHandle,
+    account: String,
+    secret: Option<String>,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        #[derive(Deserialize)]
+        struct Credential {
+            #[serde(default)]
+            secret: String,
+        }
+        let result: Credential = app
+            .state::<BookPicker>()
+            .0
+            .run_mobile_plugin("credential", json!({"account": account, "secret": secret}))
+            .map_err(|_| "无法访问系统安全存储，请重新保存 API Key")?;
+        Ok(result.secret)
+    })
+    .await
+    .map_err(|_| "系统安全存储任务失败")?
+}
+
+pub async fn pick_plugin(app: AppHandle) -> Result<Option<PathBuf>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        #[derive(Deserialize)]
+        struct ResultData {
+            path: Option<PathBuf>,
+        }
+        let result: ResultData = app
+            .state::<BookPicker>()
+            .0
+            .run_mobile_plugin("pickPlugin", ())
+            .map_err(|_| "无法导入阅读器插件目录")?;
+        if let Some(path) = &result.path {
+            let root = app
+                .path()
+                .app_cache_dir()
+                .map_err(|_| "缓存目录不可用")?
+                .join("plugins");
+            if !path
+                .canonicalize()
+                .map_err(|_| "插件目录不可用")?
+                .starts_with(root.canonicalize().map_err(|_| "插件缓存目录不可用")?)
+            {
+                return Err("插件目录无效".into());
+            }
+        }
+        Ok(result.path)
+    })
+    .await
+    .map_err(|_| "插件导入任务失败")?
+}
 
 #[derive(Deserialize)]
 pub struct PickedBook {

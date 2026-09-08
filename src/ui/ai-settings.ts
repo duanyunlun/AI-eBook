@@ -164,7 +164,7 @@ export function setupAiSettings(
   const refreshKeyStatus = (): void => {
     void invoke<boolean>("has_ai_api_key", { provider: providerValues() })
       .then((exists) => {
-        apiKey.placeholder = exists ? "已保存到系统钥匙串" : "输入 API Key（本地服务可留空）";
+        apiKey.placeholder = exists ? "已保存到系统安全存储" : "输入 API Key（本地服务可留空）";
       })
       .catch((error) => setStatus(String(error), true));
   };
@@ -173,7 +173,7 @@ export function setupAiSettings(
     if (apiKey.value.trim()) {
       await invoke("save_ai_api_key", { provider: providerValues(), apiKey: apiKey.value.trim() });
       apiKey.value = "";
-      apiKey.placeholder = "已保存到系统钥匙串";
+      apiKey.placeholder = "已保存到系统安全存储";
     }
     localStorage.setItem(storageKey, JSON.stringify(values()));
     setStatus("已保存");

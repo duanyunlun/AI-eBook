@@ -51,26 +51,34 @@ pub(crate) fn executable_path(name: &str) -> PathBuf {
 }
 
 pub(crate) fn node_path(app: &AppHandle) -> Result<PathBuf, String> {
-    if cfg!(mobile) {
-        return Err(crate::MOBILE_AI_UNAVAILABLE.into());
+    #[cfg(target_os = "android")]
+    return crate::mobile::runtime_paths(app).map(|paths| paths.node);
+    #[cfg(not(target_os = "android"))]
+    {
+        if cfg!(target_os = "ios") {
+            return Err(crate::MOBILE_AI_UNAVAILABLE.into());
+        }
+        let bundled = app
+            .path()
+            .resource_dir()
+            .map_err(|error| error.to_string())?
+            .join("runtime")
+            .join(if cfg!(windows) { "node.exe" } else { "node" });
+        if bundled.is_file() {
+            return Ok(bundled);
+        }
+        if cfg!(debug_assertions) {
+            return Ok(executable_path("node"));
+        }
+        Err("安装包缺少私有 Node 运行时，请重新下载完整安装包".into())
     }
-    let bundled = app
-        .path()
-        .resource_dir()
-        .map_err(|error| error.to_string())?
-        .join("runtime")
-        .join(if cfg!(windows) { "node.exe" } else { "node" });
-    if bundled.is_file() {
-        return Ok(bundled);
-    }
-    if cfg!(debug_assertions) {
-        return Ok(executable_path("node"));
-    }
-    Err("安装包缺少私有 Node 运行时，请重新下载完整安装包".into())
 }
 
 fn npm_command(app: &AppHandle) -> Result<Command, String> {
     let node = node_path(app)?;
+    #[cfg(target_os = "android")]
+    let npm = crate::mobile::runtime_paths(app)?.npm;
+    #[cfg(not(target_os = "android"))]
     let npm = node
         .parent()
         .unwrap_or(std::path::Path::new("."))
@@ -106,6 +114,12 @@ fn npm_command(app: &AppHandle) -> Result<Command, String> {
         use std::os::windows::process::CommandExt;
         command.creation_flags(0x08000000);
     }
+    command.env(
+        "TMPDIR",
+        app.path().app_cache_dir().map_err(|_| "缓存目录不可用")?,
+    );
+    #[cfg(target_os = "android")]
+    command.arg("--ignore-scripts");
     for key in [
         "HTTP_PROXY",
         "HTTPS_PROXY",

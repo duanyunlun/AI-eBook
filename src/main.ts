@@ -140,7 +140,7 @@ void platform.then(({ mobile, aiAvailable }) => {
   }
   if (!aiAvailable) {
     const notice = document.createElement("p");
-    notice.textContent = "Android 预览版尚未集成 DSH，AI 暂不可用。";
+    notice.textContent = "此平台尚未集成 DSH，AI 暂不可用。";
     notice.className = "settings-status";
     document.getElementById("ai-settings-form")?.before(notice);
     document.querySelectorAll<HTMLInputElement | HTMLButtonElement>("#ai-settings-form input, #ai-settings-form select, #ai-settings-form button, #dsh-update, #reader-plugin-import, #reader-plugin-restore, #summarize-notes, #question-input, #selection-think, #selection-translate, #selection-explain").forEach(control => { control.disabled = true; });

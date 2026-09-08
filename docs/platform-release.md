@@ -8,7 +8,7 @@
 | macOS Intel | x64 DMG | 同上，独立构建 |
 | Windows 10/11 x64 | NSIS EXE | 同上，WebView2 安装器按需下载运行时 |
 | Ubuntu 22.04+ x64 | DEB、AppImage | 同上，密钥存储需要桌面 Secret Service |
-| Android 8+ arm64 | 测试 APK | 离线阅读、记录、批注和知识库；DSH/AI 尚未集成 |
+| Android 8+ arm64 | 测试 APK | 阅读、记录、批注、知识库、应用私有 DSH 与阅读器插件 |
 | iOS | 本轮不打包 | 尚未适配及验证 |
 
 安装包生成不等于真机验证通过。Android 使用测试签名，不用于正式商店发布；后续换签名可能需要卸载，卸载会删除应用私有数据，当前不要在 Android 预览版中存放唯一副本。macOS 包使用 ad-hoc 完整性签名，没有 Developer ID 签名或 Apple 公证；Windows 未签名，系统可能显示未知开发者提示。
@@ -25,7 +25,7 @@ Android 通过原生文件选择器导入 PDF、TXT、Markdown，选择后在后
 
 窄屏显示可点击菜单和目录入口，设置、批注和知识详情使用全宽视图，并提供显式关闭按钮。长按选区后显示阅读操作菜单；后台切换时尝试保存阅读位置。应用被系统强制终止时，未手动保存的记录不保证保留。
 
-Android 没有可直接执行的桌面 Node/npm。当前明确禁用 AI 配置提交及运行，不保存 API Key，不引入模型直连作为替代。后续需要单独验证 Android 内嵌 Node 引擎、DSH 依赖兼容性及应用私有运行时更新策略后才能启用；不能把桌面可执行文件复制进 APK 冒充支持。
+Android 从官方 Node 24.20.0 源码交叉编译 arm64/x64 运行时，使用 Android NDK 27.2 与 16 KB 链接对齐，随 APK 安装。应用继续使用同一 DSH 子进程协议、默认阅读器插件、提示词和工具边界。DSH 保持在应用私有目录手动安装/更新；API Key 由 Android Keystore 加密保护。具体行为见 [DSH 阅读器插件](dsh-reader.md)。Node 上游未将 Android 列为正式支持平台，因此必须以应用构建和设备测试结果为准。
 
 ## 发布与验证
 

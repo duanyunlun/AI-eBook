@@ -74,7 +74,11 @@ jobs:
           releaseDraft: false
           prerelease: true
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --config src-tauri/tauri.desktop.conf.json
+  android_node:
+    if: ${{ inputs.android_artifact_run_id == '' }}
+    uses: ./.github/workflows/node-android.yml
   android:
+    needs: android_node
     if: ${{ inputs.android_artifact_run_id == '' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 60
@@ -105,7 +109,11 @@ jobs:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
         run: |
           npm run tauri -- android init --ci --skip-targets-install
-          cp src-tauri/android/BookPickerPlugin.kt src-tauri/gen/android/app/src/main/java/app/aiebook/reader/BookPickerPlugin.kt
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: android-node-*
+          path: .build-cache/android-node
+      - run: node scripts/prepare-android.mjs
       - name: Build test APK
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
@@ -118,7 +126,7 @@ jobs:
     needs: android
     if: ${{ !cancelled() && (needs.android.result == 'success' || inputs.android_artifact_run_id != '') }}
     runs-on: ubuntu-22.04
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
@@ -127,8 +135,10 @@ jobs:
         with:
           ref: ${{ github.sha }}
           path: .build-cache/ci
-          sparse-checkout: scripts/android-smoke.sh
-          sparse-checkout-cone-mode: false
+          sparse-checkout: scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

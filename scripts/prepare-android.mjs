@@ -1,0 +1,33 @@
+import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import assert from 'node:assert/strict';
+
+const app = resolve('src-tauri/gen/android/app');
+const artifacts = resolve('.build-cache/android-node');
+for (const [arch, abi] of [['arm64', 'arm64-v8a'], ['x64', 'x86_64']]) {
+  const runtime = resolve(artifacts, `android-node-${arch}`);
+  assert.equal((await readFile(resolve(runtime, 'version.txt'), 'utf8')).trim(), 'v24.20.0');
+  const destination = resolve(app, 'src/main/jniLibs', abi);
+  await mkdir(destination, { recursive: true });
+  await cp(resolve(runtime, 'libnode_runtime.so'), resolve(destination, 'libnode_runtime.so'));
+}
+const assets = resolve(app, 'src/main/assets/node-runtime');
+await mkdir(assets, { recursive: true });
+for (const name of ['npm', 'version.txt', 'LICENSE-Node.txt']) {
+  await cp(resolve(artifacts, 'android-node-arm64', name), resolve(assets, name), { recursive: true });
+}
+await cp('src-tauri/android/BookPickerPlugin.kt', resolve(app, 'src/main/java/app/aiebook/reader/BookPickerPlugin.kt'));
+const gradlePath = resolve(app, 'build.gradle.kts');
+let gradle = await readFile(gradlePath, 'utf8');
+assert.ok(gradle.includes('android {'));
+if (!gradle.includes('jniLibs.useLegacyPackaging = true')) {
+  gradle = gradle.replace('android {', 'android {\n    packaging { jniLibs.useLegacyPackaging = true }');
+  await writeFile(gradlePath, gradle);
+}
+const manifestPath = resolve(app, 'src/main/AndroidManifest.xml');
+let manifest = await readFile(manifestPath, 'utf8');
+assert.ok(manifest.includes('<application'));
+manifest = manifest.includes('android:extractNativeLibs=')
+  ? manifest.replace(/android:extractNativeLibs="[^"]*"/, 'android:extractNativeLibs="true"')
+  : manifest.replace('<application', '<application android:extractNativeLibs="true"');
+await writeFile(manifestPath, manifest);

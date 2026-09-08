@@ -30,7 +30,7 @@ for (const cancelDuringTool of [false, true]) test(cancelDuringTool ? '取消等
     response.end('data: [DONE]\n\n');
   });
   await new Promise((done) => server.listen(0, '127.0.0.1', done));
-  const child = spawn(process.execPath, [resolve('.npm-cache/dsh-runtime/node_modules/@deepseek-ai/dsh/lib/bin.js'), '--profile', 'reader', '--patch', resolve('plugins/dsh-reader/cordis.patch.yml')], {
+  const child = spawn(process.execPath, ['--expose-internals', resolve('.npm-cache/dsh-runtime/node_modules/@deepseek-ai/dsh/lib/bin.js'), '--profile', 'reader', '--patch', resolve('plugins/dsh-reader/cordis.patch.yml')], {
     env: { ...process.env, DSH_HOME: home, AI_EBOOK_DSH_PACKAGE: runtime, AI_EBOOK_API_KEY: 'test-only' },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
