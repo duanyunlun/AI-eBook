@@ -21,10 +21,10 @@ tar -xf "$archive"
 cd "node-$version"
 toolchain="${NDK_HOME:?}/toolchains/llvm/prebuilt/linux-x86_64"
 export PATH="$toolchain/bin:$PATH"
-export CC="$toolchain/bin/${triple}26-clang"
-export CXX="$toolchain/bin/${triple}26-clang++"
+export CC="ccache $toolchain/bin/${triple}26-clang"
+export CXX="ccache $toolchain/bin/${triple}26-clang++"
 export AR="$toolchain/bin/llvm-ar"
-export CC_host=gcc CXX_host=g++ AR_host=ar
+export CC_host='ccache gcc' CXX_host='ccache g++' AR_host=ar
 export GYP_DEFINES="target_arch=$arch v8_target_arch=$arch android_target_arch=$arch host_os=linux OS=android android_ndk_path=$NDK_HOME"
 export LDFLAGS='-Wl,-z,max-page-size=16384'
 cp "$NDK_HOME/sources/android/cpufeatures/cpu-features.c" deps/zlib/android_cpu_features.c

@@ -14,6 +14,10 @@ jobs:
       fail-fast: false
       matrix:
         arch: [arm64, x64]
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.build-cache/ccache/${{ matrix.arch }}
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_MAXSIZE: 2G
     steps:
       - uses: actions/checkout@v4
         with:
@@ -23,6 +27,15 @@ jobs:
         with:
           path: .build-cache/android-node/${{ matrix.arch }}
           key: android-node-${{ matrix.arch }}-${{ hashFiles('scripts/build-android-node.sh') }}
+      - uses: actions/cache/restore@v4
+        if: steps.runtime.outputs.cache-hit != 'true'
+        id: compiler
+        with:
+          path: .build-cache/ccache/${{ matrix.arch }}
+          key: android-node-compiler-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: android-node-compiler-${{ matrix.arch }}-
+      - if: steps.runtime.outputs.cache-hit != 'true'
+        run: sudo apt-get update && sudo apt-get install -y ccache
       - uses: actions/setup-java@v4
         if: steps.runtime.outputs.cache-hit != 'true'
         with:
@@ -45,6 +58,11 @@ jobs:
             fi
           done
           wait "$build_pid"
+      - uses: actions/cache/save@v4
+        if: always() && steps.runtime.outputs.cache-hit != 'true'
+        with:
+          path: .build-cache/ccache/${{ matrix.arch }}
+          key: ${{ steps.compiler.outputs.cache-primary-key }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
