@@ -74,7 +74,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NO_STRIP: true
         with:
-          tagName: ${{ inputs.validation_only && '' || inputs.tag }}
+          tagName: ${{ !inputs.validation_only && inputs.tag || '' }}
           releaseDraft: true
           prerelease: true
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --config src-tauri/tauri.desktop.conf.json
