@@ -1,0 +1,32 @@
+name: Android Node runtime
+on:
+  workflow_dispatch:
+  workflow_call:
+jobs:
+  node:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        id: runtime
+        with:
+          path: .build-cache/android-node/${{ matrix.arch }}
+          key: android-node-${{ matrix.arch }}-${{ hashFiles('scripts/build-android-node.sh') }}
+      - uses: android-actions/setup-android@v3
+        if: steps.runtime.outputs.cache-hit != 'true'
+      - if: steps.runtime.outputs.cache-hit != 'true'
+        run: sdkmanager 'ndk;27.2.12479018'
+      - if: steps.runtime.outputs.cache-hit != 'true'
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
+        run: bash scripts/build-android-node.sh ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-node-${{ matrix.arch }}
+          path: .build-cache/android-node/${{ matrix.arch }}
+          if-no-files-found: error
