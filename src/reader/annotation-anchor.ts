@@ -13,7 +13,7 @@ export function selectionAnchor(stage: HTMLElement, format: string, editionId?: 
   const rects = rangeRects(range, page);
   if (!rects.length) return;
   const locator: AnnotationAnchor = { annotation: true, page: Number(page.dataset.page), format, editionId, rects };
-  if (format !== "pdf") {
+  if (format !== "pdf" || page.classList.contains("pdf-reflow-page")) {
     const content = page.querySelector(".text-page-content");
     if (!content?.contains(range.startContainer) || !content.contains(range.endContainer)) return;
     const prefix = document.createRange();
@@ -21,6 +21,10 @@ export function selectionAnchor(stage: HTMLElement, format: string, editionId?: 
     prefix.setEnd(range.startContainer, range.startOffset);
     locator.start = prefix.toString().length;
     locator.end = locator.start + range.toString().length;
+    if (format === "pdf") locator.rects = [];
+  } else {
+    const crop = Number(page.dataset.crop) || 0;
+    locator.rects = rects.map((rect) => ({ ...rect, x: crop + rect.x * (1 - 2 * crop), width: rect.width * (1 - 2 * crop) }));
   }
   return { quote, locator };
 }
@@ -35,15 +39,27 @@ function rangeRects(range: Range, page: HTMLElement): AnnotationRect[] {
 }
 
 export function annotationRects(page: HTMLElement, anchor: AnnotationAnchor, quote: string): AnnotationRect[] {
-  if (anchor.format === "pdf") return anchor.rects || [];
-  const content = page.querySelector(".text-page-content");
-  if (!content || anchor.start === undefined || anchor.end === undefined) return [];
-  let start = anchor.start, end = anchor.end;
+  if (anchor.format === "pdf" && !page.classList.contains("pdf-reflow-page") && anchor.rects?.length) {
+    const crop = Number(page.dataset.crop) || 0;
+    return anchor.rects.map((rect) => ({ ...rect, x: (rect.x - crop) / (1 - 2 * crop), width: rect.width / (1 - 2 * crop) }));
+  }
+  const content = page.querySelector(".text-page-content, .textLayer");
+  if (!content) return [];
+  let start = anchor.start ?? -1, end = anchor.end ?? -1;
   const text = content.textContent || "";
-  if (text.slice(start, end).trim() !== quote) {
-    start = text.indexOf(quote);
-    if (start < 0 || text.indexOf(quote, start + 1) >= 0) return [];
-    end = start + quote.length;
+  if (start < 0 || text.slice(start, end).trim() !== quote) {
+    const offsets: number[] = [];
+    let normalized = "";
+    for (let index = 0; index < text.length; index++) {
+      if (/\s/.test(text[index])) continue;
+      normalized += text[index];
+      offsets.push(index);
+    }
+    const needle = quote.replace(/\s/g, "");
+    const match = normalized.indexOf(needle);
+    if (!needle || match < 0 || normalized.indexOf(needle, match + 1) >= 0) return [];
+    start = offsets[match];
+    end = offsets[match + needle.length - 1] + 1;
   }
   const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
   const range = document.createRange();

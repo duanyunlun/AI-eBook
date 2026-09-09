@@ -1,0 +1,77 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PDF 阅读模式验证</title><div id="app"></div><output id="result" style="position:fixed;bottom:0;left:0;z-index:99999;background:white;color:black">运行中</output>
+<script type="module">
+import { mountShell } from './ui/shell.ts';
+import { setupPdfReader } from './reader/pdf-reader.ts';
+import { selectionAnchor, annotationRects } from './reader/annotation-anchor.ts';
+import './styles.css';
+const saved = localStorage.getItem('pdf-reading');
+localStorage.removeItem('pdf-reading');
+const stream = 'BT /F1 18 Tf 90 700 Td (Reading a PDF on a phone.) Tj 0 -30 Td (The original page stays attached to annotations.) Tj ET';
+const objects = [
+  '<< /Type /Catalog /Pages 2 0 R >>',
+  '<< /Type /Pages /Kids [3 0 R 6 0 R] /Count 2 >>',
+  '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+  '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+  '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Resources << >> /Contents 7 0 R >>',
+  '<< /Length 0 >>\nstream\n\nendstream',
+];
+let pdf = '%PDF-1.4\n';
+const offsets = [0];
+objects.forEach((object,index) => { offsets.push(pdf.length); pdf += `${index+1} 0 obj\n${object}\nendobj\n`; });
+const xref = pdf.length;
+pdf += `xref\n0 8\n0000000000 65535 f \n${offsets.slice(1).map(offset=>String(offset).padStart(10,'0')+' 00000 n \n').join('')}trailer\n<< /Size 8 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+const url = URL.createObjectURL(new Blob([pdf], {type:'application/pdf'}));
+window.__TAURI_INTERNALS__ = {convertFileSrc:()=>url,invoke:async()=>{}};
+const elements = mountShell(document.querySelector('#app'));
+const reader = setupPdfReader(elements,()=>{},()=>{});
+const get = id => document.getElementById(id);
+const assert = (condition,message) => { if(!condition)throw new Error(message); };
+const wait = async predicate => {
+  for(let attempt=0;attempt<150;attempt++) { if(predicate())return; await new Promise(resolve=>setTimeout(resolve,30)); }
+  throw new Error('等待页面超时');
+};
+const change = mode => { get('pdf-reading-mode').value=mode; get('pdf-reading-mode').dispatchEvent(new Event('change')); };
+const first = () => elements.pageStage.querySelector('[data-page="1"]');
+const originalReady = () => first()?.querySelector('.textLayer span') && first()?.querySelector('canvas')?.dataset.rendering !== 'true';
+try {
+  await reader.open({id:'pdf-test',title:'PDF test',format:'pdf',lastPage:1,storedPath:'fixture.pdf'});
+  await wait(originalReady);
+  const span=first().querySelector('.textLayer span');
+  const range=document.createRange();range.selectNodeContents(span);
+  window.getSelection().removeAllRanges();window.getSelection().addRange(range);
+  const originalAnchor=selectionAnchor(elements.pageStage,'pdf');
+  assert(originalAnchor?.locator.rects.length,'原版批注未捕获');
+  change('crop');
+  await wait(originalReady);
+  assert(Math.abs(first().clientWidth-Math.min(elements.reader.clientWidth-24,480*2.4))<2,'裁边未适合宽度');
+  const croppedRect=annotationRects(first(),originalAnchor.locator,originalAnchor.quote)[0];
+  assert(Math.abs(croppedRect.x-(originalAnchor.locator.rects[0].x-0.1)/0.8)<0.001,'裁边批注坐标不一致');
+  const croppedRange=document.createRange();croppedRange.selectNodeContents(first().querySelector('.textLayer span'));
+  window.getSelection().removeAllRanges();window.getSelection().addRange(croppedRange);
+  const croppedAnchor=selectionAnchor(elements.pageStage,'pdf');
+  assert(Math.abs(croppedAnchor.locator.rects[0].x-originalAnchor.locator.rects[0].x)<0.005,`裁边保存没有还原原页坐标：${croppedAnchor.locator.rects[0].x} / ${originalAnchor.locator.rects[0].x}`);
+  change('reflow');
+  await wait(()=>first()?.querySelector('.text-page-content'));
+  assert(annotationRects(first(),originalAnchor.locator,originalAnchor.quote).length,'原版批注无法映射到重排');
+  const content=first().querySelector('.text-page-content');
+  const selection=document.createRange();selection.setStart(content.firstChild,0);selection.setEnd(content.firstChild,24);
+  window.getSelection().removeAllRanges();window.getSelection().addRange(selection);
+  const anchor=selectionAnchor(elements.pageStage,'pdf');
+  assert(anchor.locator.page===1&&anchor.locator.rects.length===0&&anchor.locator.start===0,'重排批注未绑定原页文字');
+  get('pdf-font').value='32';get('pdf-font').dispatchEvent(new Event('input'));
+  assert(getComputedStyle(content).fontSize==='32px','字号未生效');
+  assert(content.scrollWidth<=content.clientWidth,'重排文字横向溢出');
+  first().querySelector('button').click();
+  await wait(originalReady);
+  assert(annotationRects(first(),anchor.locator,anchor.quote).length,'重排批注无法定位原文');
+  change('reflow');
+  get('page-input').value='2';get('page-input').dispatchEvent(new Event('change'));
+  await wait(()=>elements.pageStage.querySelector('[data-page="2"] .text-page-content'));
+  assert(elements.pageStage.querySelector('[data-page="2"]').textContent.includes('没有可提取文字'),'空白/扫描页缺少提示');
+  elements.pageStage.querySelector('[data-page="2"] button').click();
+  assert(get('page-input').value==='2','返回原版丢失原页码');
+  get('result').textContent='PASS：PDF 原版/裁边/重排、字号、双向批注定位、扫描页提示与返回页码';
+} catch(error) { get('result').textContent='FAIL：'+error.message; }
+finally { if(saved===null)localStorage.removeItem('pdf-reading');else localStorage.setItem('pdf-reading',saved); }
+</script></html>

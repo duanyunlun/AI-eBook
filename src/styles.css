@@ -236,14 +236,30 @@ select:focus-visible {
   margin: 0 0 30px;
   font-size: calc(24px * var(--ui-font-scale));
   letter-spacing: 0;
+  font-family: var(--reading-font-family, inherit);
 }
 
 .text-page-content {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: calc(16px * var(--ui-font-scale));
-  line-height: 1.85;
+  font-family: var(--reading-font-family, inherit);
+  font-size: var(--pdf-reflow-font, 20px);
+  line-height: var(--pdf-reflow-line-height, 1.85);
 }
+
+.pdf-reflow-page {
+  width: min(760px, calc(100vw - 24px));
+  padding: 24px 20px 40px;
+}
+.pdf-reflow-source {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+.pdf-reflow-source button { min-height: 40px; }
 
 .empty-state,
 .loading,

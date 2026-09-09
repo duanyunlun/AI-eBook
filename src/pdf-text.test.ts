@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readPdfText } from "./reader/pdf-text.ts";
+import { readPdfText, reflowPdfText } from "./reader/pdf-text.ts";
+
+test("PDF 重排合并印刷换行但保留段落和英文词间距", () => {
+  assert.equal(reflowPdfText("这是第一行\n接着阅读。\n\nNext line\ncontinues here."), "这是第一行接着阅读。\n\nNext line continues here.");
+});
 
 test("PDF 提取不依赖 WebView 的流式异步迭代支持", async () => {
   const stream = new ReadableStream({

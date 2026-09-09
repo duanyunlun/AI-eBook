@@ -1,5 +1,9 @@
 import type { PDFPageProxy } from "pdfjs-dist";
 
+export function reflowPdfText(text: string): string {
+  return text.replace(/([^\n])\n(?=[^\n])/g, "$1 ").replace(/([\p{Script=Han}，。！？；：、）]) +(?=[\p{Script=Han}，。！？；：、（])/gu, "$1");
+}
+
 export async function readPdfText(page: Pick<PDFPageProxy, "streamTextContent">): Promise<string> {
   const reader = page.streamTextContent().getReader();
   const parts: string[] = [];

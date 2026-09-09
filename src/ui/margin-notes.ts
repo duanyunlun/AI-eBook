@@ -51,6 +51,7 @@ export function setupMarginNotes(stage: HTMLElement, drawer: HTMLElement, openDr
     openDrawer();
   };
   const locate = (anchor: AnnotationAnchor): void => {
+    stage.dispatchEvent(new CustomEvent("reader-go-to-page", { detail: anchor.page }));
     const target = stage.querySelector<HTMLElement>(`[data-page="${anchor.page}"]`);
     target?.scrollIntoView({ block: "start", behavior: "smooth" });
   };

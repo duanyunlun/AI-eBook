@@ -283,9 +283,26 @@ export function mountShell(app: HTMLElement): ShellElements {
               <div class="appearance-settings">
                 <label><span>浅色主题色</span><input id="light-accent" type="color" aria-label="浅色主题色" /></label>
                 <label><span>深色主题色</span><input id="dark-accent" type="color" aria-label="深色主题色" /></label>
+              </div>
+              <h2>字体</h2>
+              <h3>界面字体</h3>
+              <div class="appearance-settings">
                 <label><span>UI 字体</span><select id="ui-font-family"><option value="system">系统默认</option></select></label>
                 <label><span>UI 字号</span><span class="font-size-control"><input id="ui-font-size" type="range" min="12" max="18" step="1" /><output id="ui-font-size-value"></output></span></label>
               </div>
+              <h3>正文字体</h3>
+              <div class="appearance-settings">
+                <label><span>字体</span><select id="reading-font-family"><option value="system">系统默认</option><option value="serif">衬线字体</option><option value="sans-serif">无衬线字体</option></select></label>
+                <label><span>字号</span><span class="font-size-control"><input id="pdf-font" type="range" min="16" max="32" step="1" value="20" /><output id="pdf-font-value">20px</output></span></label>
+                <label><span>行距</span><select id="pdf-line-height"><option value="1.5">紧凑</option><option value="1.85" selected>舒适</option><option value="2.2">宽松</option></select></label>
+              </div>
+              <p>适用于文字书籍和 PDF 文字重排，不改变 PDF 原版排印。</p>
+              <h2>PDF 阅读</h2>
+              <div class="appearance-settings">
+                <label><span>阅读模式</span><select id="pdf-reading-mode"><option value="original">原版</option><option value="crop">裁白边</option><option value="reflow">文字重排</option></select></label>
+                <label><span>左右各裁去</span><span class="font-size-control"><input id="pdf-crop" type="range" min="0" max="20" step="1" value="10" /><output id="pdf-crop-value">10%</output></span></label>
+              </div>
+              <p>裁白边保留排版，比例可调。重排按原页展示文字，可返回原版查看插图、表格和脚注；扫描页需使用原版。</p>
               <h2>阅读配色</h2>
               <div class="appearance-settings">
                 <label><span>页面配色</span><select id="reading-color-mode"><option value="original">原色</option><option value="comfort">护眼</option><option value="night">夜间</option><option value="custom">自定义</option></select></label>
