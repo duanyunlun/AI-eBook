@@ -5,7 +5,9 @@ import { setupPdfReader } from './reader/pdf-reader.ts';
 import { selectionAnchor, annotationRects } from './reader/annotation-anchor.ts';
 import './styles.css';
 const saved = localStorage.getItem('pdf-reading');
-localStorage.removeItem('pdf-reading');
+const typography = localStorage.getItem('reading-typography');
+localStorage.removeItem('reading-typography');
+localStorage.setItem('pdf-reading',JSON.stringify({mode:'reflow',crop:20,font:24,family:'serif',lineHeight:1.85}));
 const stream = 'BT /F1 18 Tf 90 700 Td (Reading a PDF on a phone.) Tj 0 -30 Td (The original page stays attached to annotations.) Tj ET';
 const objects = [
   '<< /Type /Catalog /Pages 2 0 R >>',
@@ -22,7 +24,8 @@ objects.forEach((object,index) => { offsets.push(pdf.length); pdf += `${index+1}
 const xref = pdf.length;
 pdf += `xref\n0 8\n0000000000 65535 f \n${offsets.slice(1).map(offset=>String(offset).padStart(10,'0')+' 00000 n \n').join('')}trailer\n<< /Size 8 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
 const url = URL.createObjectURL(new Blob([pdf], {type:'application/pdf'}));
-window.__TAURI_INTERNALS__ = {convertFileSrc:()=>url,invoke:async()=>{}};
+const textUrl=URL.createObjectURL(new Blob(['第一段正文。\n\n第二段正文。'],{type:'text/plain'}));
+window.__TAURI_INTERNALS__ = {convertFileSrc:path=>path==='fixture.txt'?textUrl:url,invoke:async()=>{}};
 const elements = mountShell(document.querySelector('#app'));
 const reader = setupPdfReader(elements,()=>{},()=>{});
 const get = id => document.getElementById(id);
@@ -31,53 +34,37 @@ const wait = async predicate => {
   for(let attempt=0;attempt<150;attempt++) { if(predicate())return; await new Promise(resolve=>setTimeout(resolve,30)); }
   throw new Error('等待页面超时');
 };
-const change = mode => { get('pdf-reading-mode').value=mode; get('pdf-reading-mode').dispatchEvent(new Event('change')); };
 const first = () => elements.pageStage.querySelector('[data-page="1"]');
 const originalReady = () => first()?.querySelector('.textLayer span') && first()?.querySelector('canvas')?.dataset.rendering !== 'true';
 try {
-  await reader.open({id:'pdf-test',title:'PDF test',format:'pdf',lastPage:1,storedPath:'fixture.pdf'});
+  const book={id:'pdf-test',title:'PDF test',format:'pdf',lastPage:1,storedPath:'fixture.pdf'};
+  await reader.open(book);
   await wait(originalReady);
+  assert(first().classList.contains('pdf-page')&&!first().querySelector('.text-page-content'),'旧重排偏好仍影响 PDF');
+  assert(!get('pdf-reading-mode')&&!get('pdf-mode-toggle')&&!get('pdf-crop'),'PDF 排版入口仍存在');
   const span=first().querySelector('.textLayer span');
+  const width=span.getBoundingClientRect().width;
   const range=document.createRange();range.selectNodeContents(span);
   window.getSelection().removeAllRanges();window.getSelection().addRange(range);
-  const originalAnchor=selectionAnchor(elements.pageStage,'pdf');
-  assert(originalAnchor?.locator.rects.length,'原版批注未捕获');
-  change('crop');
-  await wait(originalReady);
-  assert(Math.abs(first().clientWidth-Math.min(elements.reader.clientWidth-24,480*2.4))<2,'裁边未适合宽度');
-  const croppedRect=annotationRects(first(),originalAnchor.locator,originalAnchor.quote)[0];
-  assert(Math.abs(croppedRect.x-(originalAnchor.locator.rects[0].x-0.1)/0.8)<0.001,'裁边批注坐标不一致');
-  const croppedRange=document.createRange();croppedRange.selectNodeContents(first().querySelector('.textLayer span'));
-  window.getSelection().removeAllRanges();window.getSelection().addRange(croppedRange);
-  const croppedAnchor=selectionAnchor(elements.pageStage,'pdf');
-  assert(Math.abs(croppedAnchor.locator.rects[0].x-originalAnchor.locator.rects[0].x)<0.005,`裁边保存没有还原原页坐标：${croppedAnchor.locator.rects[0].x} / ${originalAnchor.locator.rects[0].x}`);
-  change('reflow');
-  await wait(()=>first()?.querySelector('.text-page-content'));
-  assert(annotationRects(first(),originalAnchor.locator,originalAnchor.quote).length,'原版批注无法映射到重排');
-  const content=first().querySelector('.text-page-content');
-  assert(content.textContent.includes('phone.\n\nThe original'), 'PDF 段落被合并');
-  const selection=document.createRange();selection.setStart(content.firstChild,0);selection.setEnd(content.firstChild,24);
-  window.getSelection().removeAllRanges();window.getSelection().addRange(selection);
   const anchor=selectionAnchor(elements.pageStage,'pdf');
-  assert(anchor.locator.page===1&&anchor.locator.rects.length===0&&anchor.locator.start===0,'重排批注未绑定原页文字');
-  get('pdf-font').value='32';get('pdf-font').dispatchEvent(new Event('input'));
-  assert(getComputedStyle(content).fontSize==='32px','字号未生效');
-  assert(content.scrollWidth<=content.clientWidth,'重排文字横向溢出');
-  first().querySelector('button').click();
-  await wait(originalReady);
-  assert(annotationRects(first(),anchor.locator,anchor.quote).length,'重排批注无法定位原文');
-  assert(!get('pdf-mode-toggle').hidden && get('pdf-mode-toggle').textContent==='文字重排','返回原版后没有重排入口');
-  get('pdf-mode-toggle').click();
-  await wait(()=>first()?.querySelector('.text-page-content'));
-  assert(get('pdf-reading-mode').value==='reflow' && get('page-input').value==='1','快捷切回重排丢失模式或页码');
-  get('page-input').value='2';get('page-input').dispatchEvent(new Event('change'));
-  await wait(()=>elements.pageStage.querySelector('[data-page="2"] .text-page-content'));
-  assert(elements.pageStage.querySelector('[data-page="2"]').textContent.includes('没有可提取文字'),'空白/扫描页缺少提示');
-  elements.pageStage.querySelector('[data-page="2"] button').click();
-  assert(get('page-input').value==='2','返回原版丢失原页码');
-  get('pdf-mode-toggle').click();
-  assert(get('pdf-reading-mode').value==='reflow' && get('page-input').value==='2','第二页无法切回重排');
-  get('result').textContent='PASS：PDF 原版/裁边/重排、字号、双向批注定位、扫描页提示、原版反复切回重排与页码';
+  assert(annotationRects(first(),anchor.locator,anchor.quote).length,'PDF 批注失效');
+  assert(annotationRects(first(),{...anchor.locator,rects:[],start:0,end:anchor.quote.length},anchor.quote).length,'旧重排批注无法兼容');
+  get('reading-font-size').value='32';get('reading-font-size').dispatchEvent(new Event('input'));
+  get('reading-line-height').value='2.2';get('reading-line-height').dispatchEvent(new Event('change'));
+  assert(JSON.parse(localStorage.getItem('reading-typography')).font===32,'正文字体偏好未保存');
+  assert(span.getBoundingClientRect().width===width,'正文字体设置改变了 PDF');
+  assert(!elements.zoomIn.disabled,'PDF 原版缩放被禁用');
+  assert((await reader.readPage(book.id,1)).text.includes('Reading a PDF'),'PDF 阅读工具失效');
+  await reader.open({id:'txt-test',title:'文本',format:'txt',lastPage:1,storedPath:'fixture.txt'});
+  const content=first().querySelector('.text-page-content');
+  assert(getComputedStyle(content).fontSize==='32px','TXT 字号未生效');
+  assert(parseFloat(getComputedStyle(content).lineHeight)>70,'TXT 行距未生效');
+  assert(content.textContent.includes('\n\n'),'TXT 分段丢失');
+  assert(content.scrollWidth<=content.clientWidth,'TXT 窄屏溢出');
+  get('result').textContent='PASS：移除 PDF 排版入口、忽略旧重排模式、PDF 缩放与批注兼容、TXT 字体行距分段';
 } catch(error) { get('result').textContent='FAIL：'+error.message; }
-finally { if(saved===null)localStorage.removeItem('pdf-reading');else localStorage.setItem('pdf-reading',saved); }
+finally {
+  if(saved===null)localStorage.removeItem('pdf-reading');else localStorage.setItem('pdf-reading',saved);
+  if(typography===null)localStorage.removeItem('reading-typography');else localStorage.setItem('reading-typography',typography);
+}
 </script></html>

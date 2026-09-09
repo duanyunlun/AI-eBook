@@ -69,38 +69,39 @@ export function setupPdfReader(
   let captureCallback: ((context: ReadingContext) => void) | undefined;
   let gestureStartScale = 1;
   let touchStartDistance = 0;
-  let layoutRevision = 0;
-  const modeInput = document.querySelector<HTMLSelectElement>("#pdf-reading-mode")!;
-  const modeToggle = document.querySelector<HTMLButtonElement>("#pdf-mode-toggle")!;
-  const cropInput = document.querySelector<HTMLInputElement>("#pdf-crop")!;
-  const fontInput = document.querySelector<HTMLInputElement>("#pdf-font")!;
-  const lineInput = document.querySelector<HTMLSelectElement>("#pdf-line-height")!;
+
+  const fontInput = document.querySelector<HTMLInputElement>("#reading-font-size")!;
+  const lineInput = document.querySelector<HTMLSelectElement>("#reading-line-height")!;
   const familyInput = document.querySelector<HTMLSelectElement>("#reading-font-family")!;
-  let mode = "original", crop = 10, font = 20, lineHeight = 1.85;
-  let family = "system";
+  let font = 20, lineHeight = 1.85, family = "system";
   try {
-    const saved = JSON.parse(localStorage.getItem("pdf-reading") || "null");
-    if (["original", "crop", "reflow"].includes(saved?.mode)) mode = saved.mode;
-    if (Number.isFinite(saved?.crop)) crop = Math.max(0, Math.min(20, saved.crop));
+    const saved = JSON.parse(localStorage.getItem("reading-typography") || localStorage.getItem("pdf-reading") || "null");
     if (Number.isFinite(saved?.font)) font = Math.max(16, Math.min(32, saved.font));
     if ([1.5, 1.85, 2.2].includes(saved?.lineHeight)) lineHeight = saved.lineHeight;
     if (["system", "serif", "sans-serif"].includes(saved?.family)) family = saved.family;
-  } catch { mode = "original"; }
-  modeInput.value = mode;
-  cropInput.value = String(crop);
+  } catch { family = "system"; }
   fontInput.value = String(font);
   lineInput.value = String(lineHeight);
   familyInput.value = family;
-  const cropRatio = (): number => mode === "crop" ? crop / 100 : 0;
   const applyTypography = (): void => {
-    elements.pageStage.style.setProperty("--pdf-reflow-font", `${font}px`);
-    elements.pageStage.style.setProperty("--pdf-reflow-line-height", String(lineHeight));
+    elements.pageStage.style.setProperty("--reading-font-size", `${font}px`);
+    elements.pageStage.style.setProperty("--reading-line-height", String(lineHeight));
     elements.pageStage.style.setProperty("--reading-font-family", family === "system" ? "system-ui, sans-serif" : family);
-    document.querySelector("#pdf-crop-value")!.textContent = `${crop}%`;
-    document.querySelector("#pdf-font-value")!.textContent = `${font}px`;
-    cropInput.disabled = mode !== "crop";
+    document.querySelector("#reading-font-size-value")!.textContent = `${font}px`;
+    elements.pageStage.dispatchEvent(new Event("reader-page-rendered"));
   };
+  const updateTypography = (): void => {
+    font = fontInput.valueAsNumber;
+    lineHeight = Number(lineInput.value);
+    family = familyInput.value;
+    localStorage.setItem("reading-typography", JSON.stringify({ font, lineHeight, family }));
+    applyTypography();
+  };
+  fontInput.addEventListener("input", updateTypography);
+  lineInput.addEventListener("change", updateTypography);
+  familyInput.addEventListener("change", updateTypography);
   applyTypography();
+
 
   const setLoading = (loading: boolean): void => {
     elements.loading.hidden = !loading;
@@ -117,16 +118,13 @@ export function setupPdfReader(
     elements.pageInput.max = String(Math.max(total, 1));
     elements.pageInput.disabled = total === 0;
     elements.pageTotal.textContent = String(total);
-    modeToggle.hidden = !documentProxy;
-    modeToggle.textContent = mode === "reflow" ? "查看原版" : "文字重排";
-    modeToggle.setAttribute("aria-label", mode === "reflow" ? "切换到 PDF 原版" : "切换到 PDF 文字重排");
     const minimum = window.innerWidth <= 700 ? 0.2 : 0.6;
     elements.zoomSlider.min = String(minimum);
-    elements.zoomOut.disabled = !documentProxy || mode === "reflow" || scale <= minimum;
-    elements.zoomSlider.disabled = !documentProxy || mode === "reflow";
-    elements.zoomIn.disabled = !documentProxy || mode === "reflow" || scale >= 2.4;
+    elements.zoomOut.disabled = !documentProxy || scale <= minimum;
+    elements.zoomSlider.disabled = !documentProxy;
+    elements.zoomIn.disabled = !documentProxy || scale >= 2.4;
     elements.zoomSlider.value = String(scale);
-    elements.zoomLevel.textContent = documentProxy && mode === "reflow" ? `${font}px` : `${Math.round(scale * 100)}%`;
+    elements.zoomLevel.textContent = `${Math.round(scale * 100)}%`;
   };
   const pageElement = (page: number): HTMLElement | null =>
     pageElements.get(page) ?? null;
@@ -213,41 +211,6 @@ export function setupPdfReader(
     if (!documentProxy) return;
     const container = pageElement(pageNumber);
     if (!container) return;
-    const revision = layoutRevision;
-    const source = documentProxy;
-    if (mode === "reflow") {
-      if (container.querySelector(".text-page-content")) return;
-      try {
-        const text = await readPdfText(await source.getPage(pageNumber), true);
-        if (revision !== layoutRevision || source !== documentProxy) return;
-        const header = document.createElement("div");
-        header.className = "pdf-reflow-source";
-        const label = document.createElement("span");
-        label.textContent = `原书第 ${pageNumber} 页`;
-        const original = document.createElement("button");
-        original.type = "button";
-        original.textContent = "查看原版";
-        original.addEventListener("click", () => {
-          currentPage = pageNumber;
-          modeInput.value = "original";
-          modeInput.dispatchEvent(new Event("change"));
-        });
-        header.append(label, original);
-        const content = document.createElement("div");
-        content.className = "text-page-content";
-        content.textContent = text || "本页没有可提取文字，请查看原版。";
-        container.replaceChildren(header, content);
-        container.style.minHeight = "";
-        renderedPages.add(pageNumber);
-        elements.pageStage.dispatchEvent(new Event("reader-page-rendered"));
-      } catch (error) {
-        if (revision === layoutRevision) {
-          container.textContent = "本页文字读取失败，请切回原版或重新打开。";
-          showError(error);
-        }
-      }
-      return;
-    }
     if (!container.querySelector("canvas")) {
       container.innerHTML = `<canvas></canvas><div class="textLayer"></div><div class="annotationLayer"></div><span class="page-label">${pageNumber}</span>`;
     }
@@ -262,14 +225,11 @@ export function setupPdfReader(
     canvas.dataset.rendering = "true";
     try {
       const page = await documentProxy.getPage(pageNumber);
-      if (revision !== layoutRevision) return;
-      const fullViewport = page.getViewport({ scale });
-      const viewport = page.getViewport({ scale, offsetX: -fullViewport.width * cropRatio() });
-      viewport.width *= 1 - 2 * cropRatio();
+      const viewport = page.getViewport({ scale });
       const outputScale = Math.min(window.devicePixelRatio || 1, 1.5);
       const context = canvas.getContext("2d", { alpha: false });
       if (!context) throw new Error("无法创建 PDF 画布");
-      container.dataset.width = String(fullViewport.width / scale);
+      container.dataset.width = String(viewport.width / scale);
       container.dataset.height = String(viewport.height / scale);
       container.style.width = `${Math.floor(viewport.width)}px`;
       container.style.height = `${Math.floor(viewport.height)}px`;
@@ -288,18 +248,17 @@ export function setupPdfReader(
       const textLayer = new pdfjs.TextLayer({
         textContentSource: page.streamTextContent({ includeMarkedContent: true }),
         container: textContainer,
-        viewport: fullViewport,
+        viewport,
       });
-      const rotated = fullViewport.rotation % 180 !== 0;
-      textContainer.style.width = `${rotated ? fullViewport.height : fullViewport.width}px`;
-      textContainer.style.height = `${rotated ? fullViewport.width : fullViewport.height}px`;
-      const rotationOffset = fullViewport.rotation === 90 ? `translateX(${fullViewport.width}px)`
-        : fullViewport.rotation === 180 ? `translate(${fullViewport.width}px, ${fullViewport.height}px)`
-        : fullViewport.rotation === 270 ? `translateY(${fullViewport.height}px)` : "";
-      textContainer.style.transform = `translateX(${-fullViewport.width * cropRatio()}px) ${rotationOffset} rotate(${fullViewport.rotation}deg)`;
+      const rotated = viewport.rotation % 180 !== 0;
+      textContainer.style.width = `${rotated ? viewport.height : viewport.width}px`;
+      textContainer.style.height = `${rotated ? viewport.width : viewport.height}px`;
+      const rotationOffset = viewport.rotation === 90 ? `translateX(${viewport.width}px)`
+        : viewport.rotation === 180 ? `translate(${viewport.width}px, ${viewport.height}px)`
+        : viewport.rotation === 270 ? `translateY(${viewport.height}px)` : "";
+      textContainer.style.transform = `${rotationOffset} rotate(${viewport.rotation}deg)`;
       textLayers.set(pageNumber, textLayer);
       await renderTask.promise;
-      if (revision !== layoutRevision) return;
       canvas.dataset.scale = String(scale);
       renderedPages.add(pageNumber);
       await Promise.all([
@@ -307,7 +266,6 @@ export function setupPdfReader(
         renderInternalLinks(page, viewport, annotationContainer).catch(() => undefined),
       ]);
     } catch (error) {
-      if (revision !== layoutRevision) return;
       if (error instanceof pdfjs.RenderingCancelledException || error instanceof pdfjs.AbortException) return;
       showError(error);
     } finally {
@@ -348,7 +306,6 @@ export function setupPdfReader(
     for (const pageNumber of renderedPages) {
       if (Math.abs(pageNumber - currentPage) <= 2) continue;
       const page = pageElement(pageNumber);
-      if (page?.classList.contains("pdf-reflow-page")) page.style.minHeight = `${page.offsetHeight}px`;
       textLayers.get(pageNumber)?.cancel();
       textLayers.delete(pageNumber);
       page?.replaceChildren();
@@ -390,15 +347,12 @@ export function setupPdfReader(
     const fragment = document.createDocumentFragment();
     for (let pageNumber = 1; pageNumber <= total; pageNumber += 1) {
       const page = document.createElement("article");
-      page.className = mode === "reflow" ? "text-page pdf-reflow-page reader-page" : "pdf-page reader-page";
+      page.className = "pdf-page reader-page";
       page.dataset.page = String(pageNumber);
-      page.dataset.crop = String(cropRatio());
       page.dataset.width = String(pageWidth);
       page.dataset.height = String(pageHeight);
-      if (mode !== "reflow") {
-        page.style.width = `${Math.floor(pageWidth * scale * (1 - 2 * cropRatio()))}px`;
-        page.style.height = `${Math.floor(pageHeight * scale)}px`;
-      }
+      page.style.width = `${Math.floor(pageWidth * scale)}px`;
+      page.style.height = `${Math.floor(pageHeight * scale)}px`;
       page.setAttribute("aria-label", `第 ${pageNumber} 页`);
       pageElements.set(pageNumber, page);
       fragment.append(page);
@@ -419,7 +373,7 @@ export function setupPdfReader(
         }
         updateCurrentPage();
       },
-      { root: elements.reader, threshold: [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1] },
+      { root: elements.reader, threshold: [0, 0.5, 1] },
     );
     for (const page of elements.pageStage.children) {
       renderObserver.observe(page);
@@ -442,7 +396,7 @@ export function setupPdfReader(
     }
   }
   const changeScale = (nextScale: number): void => {
-    if (!documentProxy || mode === "reflow") return;
+    if (!documentProxy) return;
     const normalizedScale = clampScale(nextScale, window.innerWidth <= 700 ? 0.2 : 0.6);
     if (normalizedScale === scale) return;
     scale = normalizedScale;
@@ -452,7 +406,7 @@ export function setupPdfReader(
     textLayers.clear();
     for (const page of elements.pageStage.children) {
       const element = page as HTMLElement;
-      element.style.width = `${Math.floor(Number(element.dataset.width) * scale * (1 - 2 * cropRatio()))}px`;
+      element.style.width = `${Math.floor(Number(element.dataset.width) * scale)}px`;
       element.style.height = `${Math.floor(Number(element.dataset.height) * scale)}px`;
       const canvas = element.querySelector("canvas");
       if (canvas) delete canvas.dataset.scale;
@@ -465,7 +419,6 @@ export function setupPdfReader(
     }
   };
   const destroyDocument = async (): Promise<void> => {
-    layoutRevision += 1;
     for (const task of renderTasks.values()) task.cancel();
     for (const layer of textLayers.values()) layer.cancel();
     renderTasks.clear();
@@ -544,8 +497,7 @@ export function setupPdfReader(
       pageWidth = viewport.width;
       pageHeight = viewport.height;
       currentPage = clampPage(nextBook.lastPage, documentProxy.numPages);
-      scale = mode === "crop" || window.innerWidth <= 700
-        ? Math.max(0.2, Math.min(2.4, (elements.reader.clientWidth - 24) / (pageWidth * (1 - 2 * cropRatio())))) : 1;
+      scale = window.innerWidth <= 700 ? Math.max(0.2, Math.min(1, (window.innerWidth - 24) / pageWidth)) : 1;
       elements.emptyState.hidden = true;
       elements.pageStage.hidden = false;
       buildPages(documentProxy.numPages);
@@ -648,7 +600,7 @@ export function setupPdfReader(
     if (pageText.length >= 40) return { page: pageNumber, pageText };
     // ponytail: 少于 40 字按扫描页处理；需要更准时再接 OCR 或版面检测。
     await renderPage(pageNumber).catch(() => undefined);
-    const canvas = mode === "original" ? pageElement(pageNumber)?.querySelector("canvas") : undefined;
+    const canvas = pageElement(pageNumber)?.querySelector("canvas");
     let pageImage = canvas?.width && canvas.height
       ? capturedContext(canvas, pageNumber, { x: 0, y: 0, width: canvas.width, height: canvas.height })?.image
       : undefined;
@@ -673,43 +625,6 @@ export function setupPdfReader(
     return { page: pageNumber, pageText: pageText || undefined, pageImage };
   };
 
-  const updateLayout = (): void => {
-    mode = modeInput.value;
-    crop = cropInput.valueAsNumber;
-    font = fontInput.valueAsNumber;
-    lineHeight = Number(lineInput.value);
-    family = familyInput.value;
-    localStorage.setItem("pdf-reading", JSON.stringify({ mode, crop, font, lineHeight, family }));
-    applyTypography();
-    updateControls();
-    elements.pageStage.dispatchEvent(new Event("reader-page-rendered"));
-  };
-  const rebuildLayout = (): void => {
-    updateLayout();
-    if (!documentProxy) return;
-    layoutRevision += 1;
-    for (const task of renderTasks.values()) task.cancel();
-    for (const layer of textLayers.values()) layer.cancel();
-    renderTasks.clear();
-    textLayers.clear();
-    renderQueue.clear();
-    captureCallback = undefined;
-    elements.reader.classList.remove("is-capturing");
-    window.getSelection()?.removeAllRanges();
-    if (mode !== "reflow") scale = Math.max(0.2, Math.min(2.4, (elements.reader.clientWidth - 24) / (pageWidth * (1 - 2 * cropRatio()))));
-    buildPages(documentProxy.numPages);
-    goToPage(currentPage, false);
-  };
-  modeInput.addEventListener("change", rebuildLayout);
-  modeToggle.addEventListener("click", () => {
-    modeInput.value = mode === "reflow" ? "original" : "reflow";
-    rebuildLayout();
-  });
-  cropInput.addEventListener("input", () => { document.querySelector("#pdf-crop-value")!.textContent = `${cropInput.value}%`; });
-  cropInput.addEventListener("change", rebuildLayout);
-  fontInput.addEventListener("input", updateLayout);
-  lineInput.addEventListener("change", updateLayout);
-  familyInput.addEventListener("change", updateLayout);
   elements.pageStage.addEventListener("reader-go-to-page", (event) => goToPage((event as CustomEvent<number>).detail));
   elements.pageInput.addEventListener("change", () => goToPage(elements.pageInput.valueAsNumber));
   elements.zoomOut.addEventListener("click", () => changeScale(scale - 0.1));
@@ -831,7 +746,7 @@ export function setupPdfReader(
     readPage,
     searchBook,
     beginCapture: (callback) => {
-      if (!book || !documentProxy || mode === "reflow") return false;
+      if (!book || !documentProxy) return false;
       captureCallback = callback;
       elements.reader.classList.add("is-capturing");
       window.getSelection()?.removeAllRanges();

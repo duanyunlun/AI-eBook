@@ -243,23 +243,9 @@ select:focus-visible {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: var(--reading-font-family, inherit);
-  font-size: var(--pdf-reflow-font, 20px);
-  line-height: var(--pdf-reflow-line-height, 1.85);
+  font-size: var(--reading-font-size, 20px);
+  line-height: var(--reading-line-height, 1.85);
 }
-
-.pdf-reflow-page {
-  width: min(760px, calc(100vw - 24px));
-  padding: 24px 20px 40px;
-}
-.pdf-reflow-source {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 20px;
-  font-size: 14px;
-}
-.pdf-reflow-source button { min-height: 40px; }
 
 .empty-state,
 .loading,
@@ -2569,15 +2555,6 @@ body.is-resizing-question * {
   background: var(--accent-hover);
 }
 
-.pdf-mode-toggle {
-  width: auto;
-  min-height: 40px;
-  padding: 0 12px;
-  border-radius: 6px;
-  margin-right: 10px;
-  white-space: nowrap;
-  font-size: 13px;
-}
 
 .chapter-toggle svg {
   width: 20px;

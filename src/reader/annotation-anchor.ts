@@ -13,7 +13,7 @@ export function selectionAnchor(stage: HTMLElement, format: string, editionId?: 
   const rects = rangeRects(range, page);
   if (!rects.length) return;
   const locator: AnnotationAnchor = { annotation: true, page: Number(page.dataset.page), format, editionId, rects };
-  if (format !== "pdf" || page.classList.contains("pdf-reflow-page")) {
+  if (format !== "pdf") {
     const content = page.querySelector(".text-page-content");
     if (!content?.contains(range.startContainer) || !content.contains(range.endContainer)) return;
     const prefix = document.createRange();
@@ -21,10 +21,6 @@ export function selectionAnchor(stage: HTMLElement, format: string, editionId?: 
     prefix.setEnd(range.startContainer, range.startOffset);
     locator.start = prefix.toString().length;
     locator.end = locator.start + range.toString().length;
-    if (format === "pdf") locator.rects = [];
-  } else {
-    const crop = Number(page.dataset.crop) || 0;
-    locator.rects = rects.map((rect) => ({ ...rect, x: crop + rect.x * (1 - 2 * crop), width: rect.width * (1 - 2 * crop) }));
   }
   return { quote, locator };
 }
@@ -39,10 +35,7 @@ function rangeRects(range: Range, page: HTMLElement): AnnotationRect[] {
 }
 
 export function annotationRects(page: HTMLElement, anchor: AnnotationAnchor, quote: string): AnnotationRect[] {
-  if (anchor.format === "pdf" && !page.classList.contains("pdf-reflow-page") && anchor.rects?.length) {
-    const crop = Number(page.dataset.crop) || 0;
-    return anchor.rects.map((rect) => ({ ...rect, x: (rect.x - crop) / (1 - 2 * crop), width: rect.width / (1 - 2 * crop) }));
-  }
+  if (anchor.format === "pdf" && anchor.rects?.length) return anchor.rects;
   const content = page.querySelector(".text-page-content, .textLayer");
   if (!content) return [];
   let start = anchor.start ?? -1, end = anchor.end ?? -1;
