@@ -1,4 +1,17 @@
 .platform-mobile .drawer-close { display: none; }
+.platform-mobile .record-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.platform-mobile .record-actions button {
+  min-width: 0;
+  min-height: 40px;
+  margin: 0;
+  padding-inline: 4px;
+  font-size: calc(12px * var(--ui-font-scale));
+  white-space: nowrap;
+}
 .platform-mobile:not(.reading-controls-visible) :is(.reader-header-zone, .reader-footer-zone, .drawer-trigger) {
   visibility: hidden;
   pointer-events: none;

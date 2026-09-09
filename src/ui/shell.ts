@@ -229,8 +229,8 @@ export function mountShell(app: HTMLElement): ShellElements {
                 <div class="note-command-menu" id="note-command-menu" role="listbox" aria-label="内容类型" hidden></div>
               </div>
               <div class="record-actions">
-                <button class="secondary-command current-book-records" id="current-book-records" type="button" disabled>当前书籍记录</button>
-                <button class="secondary-command" id="summarize-notes" type="button">总结本书思考</button>
+                <button class="secondary-command current-book-records" id="current-book-records" type="button" title="查看当前书籍记录" disabled>本书记录</button>
+                <button class="secondary-command" id="summarize-notes" type="button" title="总结本书思考">总结思考</button>
                 <button class="primary-command" id="save-note" type="button">保存记录</button>
               </div>
             </section>

@@ -1,0 +1,34 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>移动记录按钮布局回归</title>
+<div id="app"></div><output id="result" style="position:fixed;top:0;left:0;z-index:99999;background:white;color:black"></output>
+<script type="module">
+import { mountShell } from './ui/shell.ts';
+import './styles.css';
+import './mobile.css';
+const elements = mountShell(document.querySelector('#app'));
+document.documentElement.classList.add('platform-mobile');
+elements.annotationDrawer.setAttribute('aria-hidden', 'false');
+elements.annotationDrawer.style.transform = 'none';
+elements.annotationDrawer.style.transition = 'none';
+elements.thoughtPanel.hidden = true;
+elements.recordPanel.hidden = false;
+const assert = (value, message) => { if (!value) throw new Error(message); };
+try {
+  for (const width of [320, 360, 390, 412, 768]) {
+    elements.annotationDrawer.style.setProperty('width', width + 'px', 'important');
+    for (const fontSize of [12, 14, 18]) {
+      document.documentElement.style.setProperty('--ui-font-scale', String(fontSize / 14));
+      const buttons = [...document.querySelectorAll('.record-actions button')];
+      const bounds = document.querySelector('.record-actions').getBoundingClientRect();
+      const boxes = buttons.map(button => button.getBoundingClientRect());
+      assert(boxes.every(box => box.top === boxes[0].top && box.height === boxes[0].height), '按钮发生换行或高度不一：' + width);
+      for (const [index, button] of buttons.entries()) {
+        assert(button.scrollWidth <= button.clientWidth, '按钮文字溢出：' + width + '/' + fontSize);
+        assert(boxes[index].left >= bounds.left && boxes[index].right <= bounds.right + 1, '按钮越界');
+        assert(boxes[index].height >= 40, '触摸高度不足');
+      }
+    }
+  }
+  elements.annotationDrawer.style.setProperty('width', '320px', 'important');
+  document.querySelector('#result').textContent = 'PASS：320–768px、12/14/18字号下，三个按钮同一行、文字完整、触摸高度≥40px';
+} catch (error) { document.querySelector('#result').textContent = 'FAIL：' + error.message; }
+</script></html>
