@@ -1,6 +1,6 @@
 import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { readPdfText, reflowPdfText } from "./pdf-text";
+import { readPdfText } from "./pdf-text";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, PDFPageProxy, PageViewport, RenderTask, TextLayer } from "pdfjs-dist";
 import { bookUrl, saveReadingPage, type BookRecord, type ReadingContext } from "../api";
 import { clampPage, clampScale, parseBase64DataUrl, parseTextChapters, type TextChapter } from "../reader-state";
@@ -71,6 +71,7 @@ export function setupPdfReader(
   let touchStartDistance = 0;
   let layoutRevision = 0;
   const modeInput = document.querySelector<HTMLSelectElement>("#pdf-reading-mode")!;
+  const modeToggle = document.querySelector<HTMLButtonElement>("#pdf-mode-toggle")!;
   const cropInput = document.querySelector<HTMLInputElement>("#pdf-crop")!;
   const fontInput = document.querySelector<HTMLInputElement>("#pdf-font")!;
   const lineInput = document.querySelector<HTMLSelectElement>("#pdf-line-height")!;
@@ -116,6 +117,9 @@ export function setupPdfReader(
     elements.pageInput.max = String(Math.max(total, 1));
     elements.pageInput.disabled = total === 0;
     elements.pageTotal.textContent = String(total);
+    modeToggle.hidden = !documentProxy;
+    modeToggle.textContent = mode === "reflow" ? "查看原版" : "文字重排";
+    modeToggle.setAttribute("aria-label", mode === "reflow" ? "切换到 PDF 原版" : "切换到 PDF 文字重排");
     const minimum = window.innerWidth <= 700 ? 0.2 : 0.6;
     elements.zoomSlider.min = String(minimum);
     elements.zoomOut.disabled = !documentProxy || mode === "reflow" || scale <= minimum;
@@ -214,7 +218,7 @@ export function setupPdfReader(
     if (mode === "reflow") {
       if (container.querySelector(".text-page-content")) return;
       try {
-        const text = await readPdfText(await source.getPage(pageNumber));
+        const text = await readPdfText(await source.getPage(pageNumber), true);
         if (revision !== layoutRevision || source !== documentProxy) return;
         const header = document.createElement("div");
         header.className = "pdf-reflow-source";
@@ -231,7 +235,7 @@ export function setupPdfReader(
         header.append(label, original);
         const content = document.createElement("div");
         content.className = "text-page-content";
-        content.textContent = reflowPdfText(text) || "本页没有可提取文字，请查看原版。";
+        content.textContent = text || "本页没有可提取文字，请查看原版。";
         container.replaceChildren(header, content);
         container.style.minHeight = "";
         renderedPages.add(pageNumber);
@@ -697,6 +701,10 @@ export function setupPdfReader(
     goToPage(currentPage, false);
   };
   modeInput.addEventListener("change", rebuildLayout);
+  modeToggle.addEventListener("click", () => {
+    modeInput.value = mode === "reflow" ? "original" : "reflow";
+    rebuildLayout();
+  });
   cropInput.addEventListener("input", () => { document.querySelector("#pdf-crop-value")!.textContent = `${cropInput.value}%`; });
   cropInput.addEventListener("change", rebuildLayout);
   fontInput.addEventListener("input", updateLayout);

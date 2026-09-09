@@ -145,6 +145,7 @@ export function mountShell(app: HTMLElement): ShellElements {
         </aside>
 
         <div class="reader-header-zone">
+          <button class="chapter-toggle pdf-mode-toggle" id="pdf-mode-toggle" type="button" hidden>文字重排</button>
           <button class="chapter-toggle" id="chapter-toggle" type="button" aria-controls="chapter-drawer" aria-expanded="false" aria-label="打开目录" title="目录">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M8 6h12M8 12h12M8 18h12" />
