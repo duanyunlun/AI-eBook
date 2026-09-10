@@ -54,6 +54,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag }}
+      - name: 使用官方 crates.io（仓库内镜像配置仅服务本地构建）
+        run: node -e "require('fs').rmSync('.cargo/config.toml',{force:true})"
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -96,6 +98,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag }}
+      - name: 使用官方 crates.io（仓库内镜像配置仅服务本地构建）
+        run: node -e "require('fs').rmSync('.cargo/config.toml',{force:true})"
       - uses: actions/setup-node@v4
         with:
           node-version: 24
