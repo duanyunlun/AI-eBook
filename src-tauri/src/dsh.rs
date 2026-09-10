@@ -213,25 +213,36 @@ fn update_managed_dsh(app: &AppHandle, registry: &str) -> Result<DshStatus, Stri
                 .collect());
         }
         let entry = root.join("node_modules/@deepseek-ai/dsh-attachment-local/lib/index.js");
-        let mut source = fs::read_to_string(&entry).map_err(|error| error.to_string())?;
+        let source = fs::read_to_string(&entry).map_err(|error| error.to_string())?;
         let boundary = app.path().app_data_dir().map_err(|_| "应用目录不可用")?;
-        let boundary = serde_json::to_string(&boundary.to_string_lossy()).map_err(|error| error.to_string())?;
-        let original = "await ensureDurableDirectory(home, parse(home).root);";
-        let replacement = format!("if (home !== {boundary} && !home.startsWith({boundary} + '/')) throw new Error('Attachment home is outside app data'); await ensureDurableDirectory(home, {boundary});");
-        for (before, after) in [
-            (original, replacement.as_str()),
-            ("await link(temporary, target);", "await rename(temporary, target);"),
-            ("await unlink(temporary);\n\t\tawait chmod(target, 256);", "await chmod(target, 256);"),
-        ] {
-            if source.matches(before).count() == 1 {
-                source = source.replacen(before, after, 1);
-            } else if !source.contains(after) {
-                return Err("当前 DSH 附件模块尚未适配 Android，请安装兼容版本".into());
-            }
-        }
-        fs::write(entry, source).map_err(|error| error.to_string())?;
+        let patched = patch_attachment_module(&source, &boundary.to_string_lossy())?;
+        fs::write(entry, patched).map_err(|error| error.to_string())?;
     }
     get_dsh_status(app.clone())
+}
+
+/// 为 Android 打附件模块补丁：附件目录限制在应用私有目录、硬链接改为重命名、容忍 staging 文件已被移走。
+/// 上游包改写这些语句时补丁会失配，这里显式报错要求安装兼容版本。
+#[cfg(any(target_os = "android", test))]
+fn patch_attachment_module(source: &str, boundary: &str) -> Result<String, String> {
+    let boundary = serde_json::to_string(boundary).map_err(|error| error.to_string())?;
+    let mut patched = source.to_string();
+    let original = "await ensureDurableDirectory(home, parse(home).root);";
+    let replacement = format!(
+        "if (home !== {boundary} && !home.startsWith({boundary} + '/')) throw new Error('Attachment home is outside app data'); await ensureDurableDirectory(home, {boundary});"
+    );
+    for (before, after) in [
+        (original, replacement.as_str()),
+        ("await link(temporary, target);", "await rename(temporary, target);"),
+        ("await unlink(temporary);", "await unlink(temporary).catch(() => {});"),
+    ] {
+        if patched.matches(before).count() == 1 {
+            patched = patched.replacen(before, after, 1);
+        } else if !patched.contains(after) {
+            return Err("当前 DSH 附件模块尚未适配 Android，请安装兼容版本".into());
+        }
+    }
+    Ok(patched)
 }
 
 fn check_managed_dsh(app: &AppHandle, registry: &str) -> Result<DshUpdateStatus, String> {
@@ -296,4 +307,28 @@ pub(crate) async fn update_dsh(
         .map_err(|_| "AI 请求状态不可用")?
         .runtime_updating = false;
     result.map_err(|error| error.to_string())?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::patch_attachment_module;
+
+    /// 取自上游 0.0.1-rc.1 的三处待改写语句
+    const UPSTREAM: &str = "async function save(home) {\n\tawait ensureDurableDirectory(home, parse(home).root);\n}\nasync function store() {\n\ttry { await link(temporary, target); } catch (error) {}\n\tawait unlink(temporary);\n}\n";
+
+    #[test]
+    fn patches_attachment_module_for_android() {
+        let patched = patch_attachment_module(UPSTREAM, "/data/user/0/app/files").unwrap();
+        assert!(patched.contains("await rename(temporary, target);"));
+        assert!(patched.contains("await unlink(temporary).catch(() => {});"));
+        assert!(patched.contains("Attachment home is outside app data"));
+        assert!(!patched.contains("await link(temporary, target);"));
+        // 重复打补丁应保持幂等
+        assert_eq!(patch_attachment_module(&patched, "/data/user/0/app/files").unwrap(), patched);
+    }
+
+    #[test]
+    fn rejects_unknown_attachment_module() {
+        assert!(patch_attachment_module("export const nothing = true;", "/data/app").is_err());
+    }
 }
