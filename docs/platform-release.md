@@ -21,10 +21,6 @@ Android 固定签名通过 Actions Secrets `ANDROID_PREVIEW_KEYSTORE`（PKCS12 �
 
 限制：带 DRM 的 EPUB/MOBI/AZW3 会拒绝导入并提示；扫描版 PDF 与纯图片 EPUB 没有可提取文字；旧版二进制 `.doc`、CBR（RAR）与 DJVU 未支持。可转换格式只保存提取后的正文，原文件不入库，需要保留原始文件时请自行备份。
 
-## PDF 重排
-
-PDF 默认仍是原版渲染。阅读区底部的“重排”按钮会用内置 PDF.js 提取文字，按字号与位置还原标题和段落，生成整本 Markdown 后存入书库同名 `.md`，再以可调字体、行距和配色的文本版阅读；再次点击“原版”返回 PDF。重排的阅读位置只记在本地，不覆盖 PDF 原版的进度，批注在重排模式下按章节定位。扫描版或没有文字层的 PDF 会提示无法生成。
-
 ## 桌面 DSH
 
 安装包随附 Node 24.20.0 与 npm，仅放在应用资源目录。打包脚本从 nodejs.org 下载对应架构并校验官方 SHA256，同时附带 Node 许可证。运行时使用直接 `node npm-cli.js` 调用，Windows 不依赖 Shell 对 `npm.cmd` 的解析。

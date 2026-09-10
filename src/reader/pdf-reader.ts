@@ -1,9 +1,8 @@
 import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { readPdfItems, readPdfText, type PdfTextItem } from "./pdf-text";
-import { pdfMarkdown } from "./pdf-markdown";
+import { readPdfText } from "./pdf-text";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, PDFPageProxy, PageViewport, RenderTask, TextLayer } from "pdfjs-dist";
-import { bookUrl, comicPageUrl, saveBookMarkdown, saveReadingPage, type BookRecord, type ReadingContext } from "../api";
+import { bookUrl, comicPageUrl, saveReadingPage, type BookRecord, type ReadingContext } from "../api";
 import { clampPage, clampScale, parseBase64DataUrl, parseTextChapters, type TextChapter } from "../reader-state";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
@@ -34,7 +33,6 @@ type OutlineNode = {
 
 export type PdfReader = {
   open: (book: BookRecord) => Promise<number>;
-  currentFormat: () => string;
   openChapters: () => void;
   currentBook: () => BookRecord | undefined;
   currentPageContext: () => Promise<Pick<ReadingContext, "page" | "pageText" | "pageImage">>;
@@ -73,12 +71,6 @@ export function setupPdfReader(
   let captureCallback: ((context: ReadingContext) => void) | undefined;
   let gestureStartScale = 1;
   let touchStartDistance = 0;
-  // PDF 重排：原版不变，额外读取同名 .md 作为可调字体的文本版
-  let reflow = false;
-  const reflowToggle = document.querySelector<HTMLButtonElement>("#reflow-toggle");
-  const reflowUrl = (record: BookRecord): string => bookUrl(record).replace(/\.pdf$/i, ".md");
-  const reflowPosition = (bookId: string): string => `pdf-reflow-page:${bookId}`;
-
   const fontInput = document.querySelector<HTMLInputElement>("#reading-font-size")!;
   const lineInput = document.querySelector<HTMLSelectElement>("#reading-line-height")!;
   const familyInput = document.querySelector<HTMLSelectElement>("#reading-font-family")!;
@@ -134,11 +126,6 @@ export function setupPdfReader(
     elements.zoomIn.disabled = !documentProxy || scale >= 2.4;
     elements.zoomSlider.value = String(scale);
     elements.zoomLevel.textContent = `${Math.round(scale * 100)}%`;
-    if (reflowToggle) {
-      reflowToggle.hidden = !book || book.format !== "pdf";
-      reflowToggle.textContent = reflow ? "原版" : "重排";
-      reflowToggle.title = reflow ? "返回 PDF 原版排版" : "把 PDF 正文重排成可调字体的文本";
-    }
   };
   const pageElement = (page: number): HTMLElement | null =>
     pageElements.get(page) ?? null;
@@ -330,17 +317,12 @@ export function setupPdfReader(
     if (!book) return;
     window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => {
-      // 重排位置只记在本地，避免覆盖 PDF 原版的阅读位置
-      if (!book) return;
-      if (reflow) localStorage.setItem(reflowPosition(book.id), String(currentPage));
-      else void saveReadingPage(book.id, currentPage).catch(showError);
+      if (book) void saveReadingPage(book.id, currentPage).catch(showError);
     }, 350);
   };
   const flushPage = async (): Promise<void> => {
     window.clearTimeout(saveTimer);
-    if (!book) return;
-    if (reflow) localStorage.setItem(reflowPosition(book.id), String(currentPage));
-    else await saveReadingPage(book.id, currentPage);
+    if (book) await saveReadingPage(book.id, currentPage);
   };
   const updateCurrentPage = (): void => {
     const visible = [...visibility.entries()].filter(([, ratio]) => ratio > 0);
@@ -544,12 +526,11 @@ export function setupPdfReader(
         goToPage(currentPage, false);
         return comicPages.length;
       }
-      if (nextBook.format !== "pdf" || reflow) {
-        const response = await fetch(nextBook.format === "pdf" ? reflowUrl(nextBook) : bookUrl(nextBook));
+      if (nextBook.format !== "pdf") {
+        const response = await fetch(bookUrl(nextBook));
         if (!response.ok) throw new Error(`无法读取文本文件（${response.status}）`);
         textChapters = parseTextChapters(await response.text());
-        const saved = Number(localStorage.getItem(reflowPosition(nextBook.id)));
-        currentPage = clampPage(reflow && Number.isFinite(saved) && saved > 0 ? saved : nextBook.lastPage, textChapters.length);
+        currentPage = clampPage(nextBook.lastPage, textChapters.length);
         scale = 1;
         elements.emptyState.hidden = true;
         elements.pageStage.hidden = false;
@@ -590,49 +571,6 @@ export function setupPdfReader(
     await flushPage().catch(showError);
     return openInternal(nextBook);
   };
-  /** 首次切换时用 pdf.js 提取正文生成重排 Markdown，随后读取它作为文本版。 */
-  const generateMarkdown = async (record: BookRecord): Promise<void> => {
-    const source = documentProxy;
-    if (!source) throw new Error("请先打开 PDF 原版");
-    const total = source.numPages;
-    const pages: PdfTextItem[][] = [];
-    for (let page = 1; page <= total; page++) {
-      if (source !== documentProxy) throw new Error("PDF 已关闭，重排已中止");
-      if (reflowToggle) reflowToggle.textContent = `重排 ${Math.round((page / total) * 100)}%`;
-      // 每页之间让出主线程，长文档生成时界面仍然可响应
-      if (page % 8 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
-      pages.push(await readPdfItems(await source.getPage(page)));
-    }
-    const markdown = pdfMarkdown(pages);
-    if (!markdown.trim()) throw new Error("这份 PDF 没有可提取的文字，可能是扫描版");
-    await saveBookMarkdown(record.id, markdown);
-  };
-  const toggleReflow = async (): Promise<void> => {
-    if (!book || book.format !== "pdf") return;
-    const record = book;
-    const next = !reflow;
-    await flushPage().catch(showError);
-    try {
-      if (next) {
-        reflow = true;
-        updateControls();
-        if (reflowToggle) reflowToggle.disabled = true;
-        const response = await fetch(reflowUrl(record));
-        if (!response.ok) await generateMarkdown(record);
-      }
-      reflow = next;
-      await openInternal(record);
-      window.dispatchEvent(new Event("reader-mode-changed"));
-    } catch (error) {
-      reflow = false;
-      await openInternal(record).catch(() => undefined);
-      showError(error);
-    } finally {
-      if (reflowToggle) reflowToggle.disabled = false;
-      updateControls();
-    }
-  };
-  reflowToggle?.addEventListener("click", () => void toggleReflow());
   const capturedContext = (
     source: HTMLCanvasElement,
     page: number,
@@ -866,8 +804,6 @@ export function setupPdfReader(
   });
   return {
     open,
-    // 重排模式下批注按文本定位，避免锚点落到 PDF 原版页面上
-    currentFormat: () => (book?.format === "pdf" && reflow ? "md" : book?.format || "pdf"),
     openChapters: () => {
       if (!elements.chapterToggle.disabled) setChapterDrawerOpen(true);
     },

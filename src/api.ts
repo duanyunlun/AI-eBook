@@ -110,9 +110,6 @@ export const renameBook = (bookId: string, title: string): Promise<BookRecord> =
 export const removeBook = (bookId: string): Promise<void> => invoke("remove_book", { bookId });
 export const saveReadingPage = (bookId: string, page: number): Promise<void> =>
   invoke("save_reading_page", { bookId, page });
-export const saveBookMarkdown = (bookId: string, markdown: string): Promise<string> =>
-  invoke("save_book_markdown", { bookId, markdown });
-
 export const saveKnowledge = (request: SaveKnowledgeRequest): Promise<KnowledgeItem> =>
   invoke<KnowledgeItem>("save_knowledge_item", { request }).then((item) => { window.dispatchEvent(new Event("knowledge-changed")); return item; });
 export const updateKnowledge = (request: {

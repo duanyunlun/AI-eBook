@@ -303,7 +303,6 @@ pub fn run() {
             library::list_books,
             library::rename_book,
             library::save_reading_page,
-            library::save_book_markdown,
             library::remove_book,
             knowledge::save_knowledge_item,
             knowledge::update_knowledge_item,

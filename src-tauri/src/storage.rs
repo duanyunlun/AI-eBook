@@ -235,18 +235,6 @@ impl KnowledgeStore {
         Ok(())
     }
 
-    pub fn book_stored_path(&self, book_id: &str) -> Result<Option<String>, StorageError> {
-        self.lock()?
-            .query_row(
-                "SELECT stored_path FROM editions WHERE book_id = ? LIMIT 1",
-                [book_id],
-                |row| row.get::<_, Option<String>>(0),
-            )
-            .optional()
-            .map(Option::flatten)
-            .map_err(StorageError::from)
-    }
-
     pub fn remove_book_file(&self, book_id: &str) -> Result<Option<String>, StorageError> {
         let mut connection = self.lock()?;
         let transaction = connection.transaction()?;

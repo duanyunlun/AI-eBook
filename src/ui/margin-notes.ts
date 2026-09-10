@@ -194,7 +194,5 @@ export function setupMarginNotes(stage: HTMLElement, drawer: HTMLElement, openDr
       if (saved) { selected = saved.selected; draft = saved.draft; baseline = saved.baseline; editor.setMarkdown(saved.body); syncDirty(); quote.textContent = draft.quote; source.textContent = `第 ${draft.locator.page} ${isPaged(format) ? "页" : "章"} · 原文`; editorPanel.hidden = false; list.hidden = true; remove.hidden = !selected; }
       void refresh();
     },
-    // PDF 切换到重排文本时按章节定位批注
-    setFormat(next: string) { format = next; },
   };
 }

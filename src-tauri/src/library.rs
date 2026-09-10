@@ -126,11 +126,6 @@ pub fn remove_book(
         if path.starts_with(&library_dir) && path.exists() {
             fs::remove_file(&path).map_err(|error| error.to_string())?;
         }
-        // PDF 重排文本与书籍文件同名不同后缀，一并清理
-        let derived = path.with_extension("md");
-        if derived.starts_with(&library_dir) && derived.exists() {
-            fs::remove_file(derived).map_err(|error| error.to_string())?;
-        }
         // CBZ 的图片目录与清单同名
         let images = path.with_extension("");
         if images.starts_with(&library_dir) && images.is_dir() {
@@ -138,39 +133,6 @@ pub fn remove_book(
         }
     }
     Ok(())
-}
-
-/// 保存 PDF 重排正文，供阅读区在“重排”模式下按章节阅读。
-#[tauri::command]
-pub fn save_book_markdown(
-    app: AppHandle,
-    store: State<'_, KnowledgeStore>,
-    book_id: String,
-    markdown: String,
-) -> Result<String, String> {
-    const LIMIT: usize = 32 * 1024 * 1024;
-    if markdown.trim().is_empty() {
-        return Err("没有提取到可重排的正文".into());
-    }
-    if markdown.len() > LIMIT {
-        return Err("重排文本超过 32 MB，已中止保存".into());
-    }
-    let library_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?
-        .join("library");
-    let stored = store
-        .book_stored_path(&book_id)
-        .map_err(|error| error.to_string())?
-        .ok_or("书籍文件不存在")?;
-    let path = PathBuf::from(stored);
-    if !path.starts_with(&library_dir) {
-        return Err("书籍文件不在书库目录".into());
-    }
-    let target = path.with_extension("md");
-    fs::write(&target, markdown).map_err(|error| error.to_string())?;
-    Ok(target.to_string_lossy().into_owned())
 }
 
 struct ImportedFile {
