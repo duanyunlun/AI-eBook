@@ -1,4 +1,8 @@
 .platform-mobile .drawer-close { display: none; }
+/* 宽屏触控设备（平板）上侧栏常驻，保留关闭入口；窄屏仍用返回键收起 */
+@media (min-width: 701px) and (hover: none) {
+  .platform-mobile .drawer-close { display: inline-grid; flex: none; }
+}
 .platform-mobile .record-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
