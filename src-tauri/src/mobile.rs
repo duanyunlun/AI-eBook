@@ -124,7 +124,7 @@ pub async fn pick_book(app: AppHandle) -> Result<Option<PickedBook>, String> {
             .state::<BookPicker>()
             .0
             .run_mobile_plugin("pickBook", ())
-            .map_err(|_| "无法导入所选文件，请选择本地 PDF、TXT 或 Markdown 文件（最大 512 MB）")?;
+            .map_err(|_| "无法导入所选文件，请选择本地 PDF、TXT、Markdown 或 EPUB 文件（最大 512 MB）")?;
         if let Some(book) = &result.book {
             let imports = app
                 .path()

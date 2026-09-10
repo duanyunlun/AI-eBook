@@ -219,7 +219,10 @@ class BookPickerPlugin(private val activity: Activity) : Plugin(activity) {
         val intent = Intent(Intent.ACTION_GET_CONTENT)
         intent.addCategory(Intent.CATEGORY_OPENABLE)
         intent.type = "*/*"
-        intent.putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/pdf", "text/plain", "text/markdown", "text/x-markdown"))
+        intent.putExtra(
+            Intent.EXTRA_MIME_TYPES,
+            arrayOf("application/pdf", "text/plain", "text/markdown", "text/x-markdown", "application/epub+zip"),
+        )
         startActivityForResult(invoke, intent, "bookPicked")
     }
 
@@ -238,7 +241,7 @@ class BookPickerPlugin(private val activity: Activity) : Plugin(activity) {
                     if (cursor.moveToFirst()) cursor.getString(0) else null
                 } ?: throw IllegalArgumentException()
                 val extension = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
-                require(extension in setOf("pdf", "txt", "md", "markdown"))
+                require(extension in setOf("pdf", "txt", "md", "markdown", "epub"))
                 require(name.length <= 512)
                 val folder = File(activity.cacheDir, "imports")
                 folder.mkdirs()
@@ -265,7 +268,7 @@ class BookPickerPlugin(private val activity: Activity) : Plugin(activity) {
                 invoke.resolve(response)
             } catch (error: Exception) {
                 target?.delete()
-                invoke.reject("仅支持不超过 512 MB 的 PDF、TXT 和 Markdown 文件")
+                invoke.reject("仅支持不超过 512 MB 的 PDF、TXT、Markdown 和 EPUB 文件")
             }
         }.start()
     }

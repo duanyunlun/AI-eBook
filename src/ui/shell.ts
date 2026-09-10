@@ -296,7 +296,7 @@ export function mountShell(app: HTMLElement): ShellElements {
                 <label><span>字号</span><span class="font-size-control"><input id="reading-font-size" type="range" min="16" max="32" step="1" value="20" /><output id="reading-font-size-value">20px</output></span></label>
                 <label><span>行距</span><select id="reading-line-height"><option value="1.5">紧凑</option><option value="1.85" selected>舒适</option><option value="2.2">宽松</option></select></label>
               </div>
-              <p>适用于 TXT、Markdown 等可重排文本，不改变 PDF 的字体和排版。</p>
+              <p>适用于 TXT、Markdown、EPUB 等可重排文本，不改变 PDF 的字体和排版。</p>
               <h2>阅读配色</h2>
               <div class="appearance-settings">
                 <label><span>页面配色</span><select id="reading-color-mode"><option value="original">原色</option><option value="comfort">护眼</option><option value="night">夜间</option><option value="custom">自定义</option></select></label>

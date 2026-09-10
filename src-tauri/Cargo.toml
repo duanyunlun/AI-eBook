@@ -25,6 +25,7 @@ thiserror = "2"
 uuid = { version = "1.26", features = ["v7"] }
 url = "2"
 zeroize = "1"
+zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 fontdb = "0.24"

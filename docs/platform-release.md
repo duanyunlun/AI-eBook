@@ -15,6 +15,10 @@
 
 Android 固定签名通过 Actions Secrets `ANDROID_PREVIEW_KEYSTORE`（PKCS12 的 Base64）与 `ANDROID_PREVIEW_STORE_PASSWORD` 注入，别名为 `ai-ebook-preview`。私钥和密码不进入 Git、安装包或构建产物。证书 SHA256 为 `82d9aeaf645261256b275deb3f41b745aa14eb4815320d4c59c61c1878dadb41`，构建后校验签名、CPU 架构和 16 KB ELF 对齐。不要随意重新生成签名，否则会破坏覆盖升级。
 
+## EPUB 导入
+
+桌面与 Android 都能导入 EPUB 2/3：导入时按 spine 顺序提取各章正文，转成带标题的 Markdown 存入书库，章节目录、阅读进度、批注与 AI 上下文复用现有文本链路。图片、样式和脚本不进入正文；纯图片或带 DRM 加密的 EPUB 会拒绝导入并提示。书库只保存提取后的正文，原文件不入库，需要保留原始文件时请自行备份。
+
 ## 桌面 DSH
 
 安装包随附 Node 24.20.0 与 npm，仅放在应用资源目录。打包脚本从 nodejs.org 下载对应架构并校验官方 SHA256，同时附带 Node 许可证。运行时使用直接 `node npm-cli.js` 调用，Windows 不依赖 Shell 对 `npm.cmd` 的解析。
@@ -33,7 +37,7 @@ Android 系统返回键先由系统收起软键盘，再逐层关闭弹窗、确
 
 Android 外观设置可切换“隐藏系统状态栏”，即时生效并记住选择。原生窗口按系统栏、屏幕切口和键盘的实际 Insets 留出空间；隐藏状态栏时重新分配阅读高度，导航返回手势保持系统默认。实现依据：[Android 系统栏与 Insets](https://developer.android.com/develop/ui/views/layout/edge-to-edge)。
 
-Android 通过原生文件选择器导入 PDF、TXT、Markdown，选择后在后台流式复制到临时私有目录，最大 512 MB，再复用桌面的内容哈希入库。取消选择不报错，失败清理临时文件。不会申请整个存储的读写权限。
+Android 通过原生文件选择器导入 PDF、TXT、Markdown、EPUB，选择后在后台流式复制到临时私有目录，最大 512 MB，再复用桌面的内容哈希入库。取消选择不报错，失败清理临时文件。不会申请整个存储的读写权限。
 
 触控设备和窄屏显示可点击菜单、目录及关闭入口，不依赖鼠标悬停；窄屏的设置、批注和知识详情使用全宽视图。长按选区后显示阅读操作菜单；后台切换时尝试保存阅读位置。应用被系统强制终止时，未手动保存的记录不保证保留。
 
@@ -87,7 +91,7 @@ npm run tauri -- build --config src-tauri/tauri.desktop.conf.json
 
 ### 正文字体与 PDF 原版
 
-“外观 → 字体 → 正文字体”提供系统、衬线、无衬线字体，16–32px 字号和三档行距，仅应用于 TXT、Markdown 等可重排文本。偏好独立于 UI 字号，保存到 reading-typography，并兼容读取上一版的正文字体数值。
+“外观 → 字体 → 正文字体”提供系统、衬线、无衬线字体，16–32px 字号和三档行距，仅应用于 TXT、Markdown、EPUB 等可重排文本。偏好独立于 UI 字号，保存到 reading-typography，并兼容读取上一版的正文字体数值。
 
 PDF 始终使用原版，已移除裁白边、文字重排和模式切换入口；旧 PDF 模式偏好不再生效。原版缩放、阅读工具、截图、批注和此前的阅读配色继续保留。旧重排模式创建的批注保留文字定位兼容，无法唯一匹配时仍可在批注栏查看。
 

@@ -1,5 +1,6 @@
 pub mod ai;
 pub mod dsh;
+pub mod epub;
 pub mod history;
 pub mod knowledge;
 pub mod library;

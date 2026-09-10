@@ -25,7 +25,7 @@ Android 使用 Android Keystore 的 AES-GCM 密钥加密 API Key，密文保存�
 | 工具 | 范围 |
 | --- | --- |
 | `reading_context` | 请求绑定的作品、页码、选区和页面快照，文本各最多 20,000 字符 |
-| `read_page` | 当前作品指定页，TXT/Markdown 为章节；返回最多 20,000 字符并标记截断 |
+| `read_page` | 当前作品指定页，TXT/Markdown/EPUB 为章节；返回最多 20,000 字符并标记截断 |
 | `search_book` | 每批最多扫描 100 页，最多 20 个匹配，返回下一批起点；不改变阅读位置 |
 | `search_knowledge` | 当前作品匹配记录，最多 10 条、每条正文 4,000 字符 |
 | `save_note` | 显示标题和正文供用户确认，确认后独立保存 AI 知识项；不修改或删除旧内容 |
