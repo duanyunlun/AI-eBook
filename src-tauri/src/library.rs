@@ -340,6 +340,11 @@ mod tests {
             super::file_format(Path::new("/tmp/书.EPUB")).unwrap(),
             "epub"
         );
+        // CBR 与 CBZ 共用漫画阅读链路
+        assert_eq!(
+            super::file_format(Path::new("/tmp/漫画.CBR")).unwrap(),
+            "cbz"
+        );
         assert!(super::file_format(Path::new("/tmp/书.xyz")).is_err());
     }
 
