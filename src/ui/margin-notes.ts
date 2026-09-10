@@ -4,6 +4,9 @@ import { selectionAnchor, annotationRects, type AnnotationAnchor } from "../read
 import { setupNoteEditor } from "./note-editor";
 
 export type BookAnnotation = { item: KnowledgeItem; quote: string; locator: AnnotationAnchor };
+/** PDF 与漫画按页计数，其余转换后的电子书按章节计数。 */
+const isPaged = (format: string): boolean => format === "pdf" || format === "cbz";
+
 export function setupMarginNotes(stage: HTMLElement, drawer: HTMLElement, openDrawer: () => void, toggleDrawer: () => void, onSaved: () => void) {
   const get = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
   const panel = get("margin-notes-panel"), list = get("margin-notes-list"), editorPanel = get("margin-note-editor");
@@ -14,7 +17,7 @@ export function setupMarginNotes(stage: HTMLElement, drawer: HTMLElement, openDr
   const pin = get<HTMLButtonElement>("pin-margin-notes"), action = get<HTMLButtonElement>("selection-annotate");
   const editor = setupNoteEditor(host, get("margin-note-commands"));
   host.querySelector('[role="textbox"]')?.setAttribute("aria-label", "批注正文");
-  let book: BookRecord | undefined, page = 1, entries: BookAnnotation[] = [], revision = 0;
+  let book: BookRecord | undefined, format = "pdf", page = 1, entries: BookAnnotation[] = [], revision = 0;
   let selected: BookAnnotation | undefined, draft: ReturnType<typeof selectionAnchor>, selection: ReturnType<typeof selectionAnchor>;
   let baseline = "", saving = false;
   const drafts = new Map<string, { selected?: BookAnnotation; draft: NonNullable<typeof draft>; body: string; baseline: string }>();
@@ -60,7 +63,7 @@ export function setupMarginNotes(stage: HTMLElement, drawer: HTMLElement, openDr
     changeAllowed(() => {
     selected = entry; draft = nextDraft; baseline = entry?.item.bodyMd || "";
     editor.setMarkdown(baseline); syncDirty(); quote.textContent = draft.quote;
-    source.textContent = `第 ${draft.locator.page} ${book?.format === "pdf" ? "页" : "章"} · 原文`;
+    source.textContent = `第 ${draft.locator.page} ${isPaged(format) ? "页" : "章"} · 原文`;
     editorPanel.hidden = false; list.hidden = true; remove.hidden = !entry; status.textContent = "";
     show(); if (entry) locate(entry.locator); else editor.focus();
     });
@@ -72,7 +75,7 @@ export function setupMarginNotes(stage: HTMLElement, drawer: HTMLElement, openDr
     if (!visible.length) { const empty = document.createElement("p"); empty.className = "margin-note-empty"; empty.textContent = book ? "暂无批注" : "尚未打开书籍"; list.append(empty); }
     for (const entry of visible) {
       const row = document.createElement("button"); row.type = "button"; row.className = "margin-note-row";
-      const location = document.createElement("small"); location.textContent = `第 ${entry.locator.page} ${book?.format === "pdf" ? "页" : "章"}`;
+      const location = document.createElement("small"); location.textContent = `第 ${entry.locator.page} ${isPaged(format) ? "页" : "章"}`;
       const excerpt = document.createElement("blockquote"); excerpt.textContent = entry.quote;
       const body = document.createElement("p"); body.textContent = entry.item.bodyMd;
       row.append(location, excerpt, body); row.addEventListener("click", () => edit(entry)); list.append(row);
@@ -112,7 +115,7 @@ export function setupMarginNotes(stage: HTMLElement, drawer: HTMLElement, openDr
     } catch { if (version === revision) status.textContent = "批注加载失败，请重新打开批注栏重试"; }
   };
   const capture = (): void => {
-    selection = book ? selectionAnchor(stage, book.format, book.editionId) : undefined;
+    selection = book ? selectionAnchor(stage, format, book.editionId) : undefined;
     action.hidden = !selection;
   };
   document.addEventListener("selectionchange", () => { if (window.getSelection()?.toString()) capture(); });
@@ -185,11 +188,13 @@ export function setupMarginNotes(stage: HTMLElement, drawer: HTMLElement, openDr
     setBook(next: BookRecord) {
       clearConfirmation();
       if (book && draft && dirty()) drafts.set(book.id, { selected, draft, body: editor.getMarkdown(), baseline });
-      book = next; page = next.lastPage; selection = undefined; entries = []; revision++; status.textContent = "";
+      book = next; format = next.format; page = next.lastPage; selection = undefined; entries = []; revision++; status.textContent = "";
       selected = undefined; draft = undefined; baseline = ""; editor.clear(); syncDirty(); editorPanel.hidden = true; list.hidden = false;
       const saved = drafts.get(next.id);
-      if (saved) { selected = saved.selected; draft = saved.draft; baseline = saved.baseline; editor.setMarkdown(saved.body); syncDirty(); quote.textContent = draft.quote; source.textContent = `第 ${draft.locator.page} ${book.format === "pdf" ? "页" : "章"} · 原文`; editorPanel.hidden = false; list.hidden = true; remove.hidden = !selected; }
+      if (saved) { selected = saved.selected; draft = saved.draft; baseline = saved.baseline; editor.setMarkdown(saved.body); syncDirty(); quote.textContent = draft.quote; source.textContent = `第 ${draft.locator.page} ${isPaged(format) ? "页" : "章"} · 原文`; editorPanel.hidden = false; list.hidden = true; remove.hidden = !selected; }
       void refresh();
     },
+    // PDF 切换到重排文本时按章节定位批注
+    setFormat(next: string) { format = next; },
   };
 }

@@ -15,9 +15,15 @@
 
 Android 固定签名通过 Actions Secrets `ANDROID_PREVIEW_KEYSTORE`（PKCS12 的 Base64）与 `ANDROID_PREVIEW_STORE_PASSWORD` 注入，别名为 `ai-ebook-preview`。私钥和密码不进入 Git、安装包或构建产物。证书 SHA256 为 `82d9aeaf645261256b275deb3f41b745aa14eb4815320d4c59c61c1878dadb41`，构建后校验签名、CPU 架构和 16 KB ELF 对齐。不要随意重新生成签名，否则会破坏覆盖升级。
 
-## EPUB 导入
+## 电子书格式导入
 
-桌面与 Android 都能导入 EPUB 2/3：导入时按 spine 顺序提取各章正文，转成带标题的 Markdown 存入书库，章节目录、阅读进度、批注与 AI 上下文复用现有文本链路。图片、样式和脚本不进入正文；纯图片或带 DRM 加密的 EPUB 会拒绝导入并提示。书库只保存提取后的正文，原文件不入库，需要保留原始文件时请自行备份。
+桌面与 Android 都能导入 PDF、TXT、Markdown、EPUB、FB2（含 `.fb2.zip`）、DOCX、RTF、MOBI/AZW3、HTML 与 CBZ/CBR（zip 打包）漫画。EPUB 按 spine、FB2 按 `title`、DOCX 按标题样式分章，MOBI/AZW3 按 PalmDOC/HUFF-CDIC 解压后提取正文，全部转成带标题的 Markdown 存入书库；章节目录、阅读进度、批注与 AI 上下文复用现有文本链路。图片、样式和脚本不进入正文，CBZ 按页显示图片。
+
+限制：带 DRM 的 EPUB/MOBI/AZW3 会拒绝导入并提示；扫描版 PDF 与纯图片 EPUB 没有可提取文字；旧版二进制 `.doc`、CBR（RAR）与 DJVU 未支持。可转换格式只保存提取后的正文，原文件不入库，需要保留原始文件时请自行备份。
+
+## PDF 重排
+
+PDF 默认仍是原版渲染。阅读区底部的“重排”按钮会用内置 PDF.js 提取文字，按字号与位置还原标题和段落，生成整本 Markdown 后存入书库同名 `.md`，再以可调字体、行距和配色的文本版阅读；再次点击“原版”返回 PDF。重排的阅读位置只记在本地，不覆盖 PDF 原版的进度，批注在重排模式下按章节定位。扫描版或没有文字层的 PDF 会提示无法生成。
 
 ## 桌面 DSH
 

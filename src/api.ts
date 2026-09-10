@@ -100,6 +100,9 @@ export type AiMessage = {
 type AiOutput = { type: "delta"; data: string } | { type: "finished" | "reset" } | { type: "tool"; data: { callId: string; name: string; arguments: Record<string, unknown> } };
 
 export const bookUrl = (book: BookRecord): string => convertFileSrc(book.storedPath);
+/** CBZ 图片与清单同目录同名，按清单里的文件名拼出资源地址。 */
+export const comicPageUrl = (book: BookRecord, name: string): string =>
+  convertFileSrc(`${book.storedPath.replace(/\.[^.]+$/, "")}/${name}`);
 export const importBook = (): Promise<BookRecord | null> => invoke("import_book");
 export const listBooks = (): Promise<BookRecord[]> => invoke("list_books");
 export const renameBook = (bookId: string, title: string): Promise<BookRecord> =>
@@ -107,6 +110,8 @@ export const renameBook = (bookId: string, title: string): Promise<BookRecord> =
 export const removeBook = (bookId: string): Promise<void> => invoke("remove_book", { bookId });
 export const saveReadingPage = (bookId: string, page: number): Promise<void> =>
   invoke("save_reading_page", { bookId, page });
+export const saveBookMarkdown = (bookId: string, markdown: string): Promise<string> =>
+  invoke("save_book_markdown", { bookId, markdown });
 
 export const saveKnowledge = (request: SaveKnowledgeRequest): Promise<KnowledgeItem> =>
   invoke<KnowledgeItem>("save_knowledge_item", { request }).then((item) => { window.dispatchEvent(new Event("knowledge-changed")); return item; });

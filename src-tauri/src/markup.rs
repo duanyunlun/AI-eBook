@@ -42,6 +42,8 @@ fn scan(source: &str, headings: &[&str], blocks: &mut Vec<(Option<usize>, String
             }
         }
         let Some(end) = rest[start..].find('>') else {
+            // 末尾残缺标签：其后不再有可归属的文本
+            rest = "";
             break;
         };
         let tag = &rest[start + 1..start + end];
@@ -93,6 +95,13 @@ fn scan(source: &str, headings: &[&str], blocks: &mut Vec<(Option<usize>, String
         }
         if is_block(&name) {
             raw.push('\n');
+        }
+    }
+    if skipped.is_none() {
+        if level.is_some() {
+            heading.push_str(&decode(rest));
+        } else {
+            raw.push_str(&decode(rest));
         }
     }
     if level.is_some() {
@@ -256,6 +265,18 @@ mod tests {
                 ),
                 ("第二章".to_string(), "正文三。".to_string()),
             ]
+        );
+    }
+
+    #[test]
+    fn keeps_trailing_text_without_tags() {
+        assert_eq!(
+            chapters("正文", &["h1"]),
+            [("".to_string(), "正文".to_string())]
+        );
+        assert_eq!(
+            chapters("<h1>第一章</h1>正文", &["h1"]),
+            [("第一章".to_string(), "正文".to_string())]
         );
     }
 

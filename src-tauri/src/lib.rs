@@ -1,4 +1,5 @@
 pub mod ai;
+pub mod comic;
 pub mod dsh;
 pub mod docx;
 pub mod epub;
@@ -7,6 +8,7 @@ pub mod history;
 pub mod knowledge;
 pub mod library;
 pub mod markup;
+pub mod mobi;
 #[cfg(target_os = "android")]
 mod mobile;
 pub mod reader_runtime;
@@ -301,6 +303,7 @@ pub fn run() {
             library::list_books,
             library::rename_book,
             library::save_reading_page,
+            library::save_book_markdown,
             library::remove_book,
             knowledge::save_knowledge_item,
             knowledge::update_knowledge_item,

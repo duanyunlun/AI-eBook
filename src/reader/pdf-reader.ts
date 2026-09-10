@@ -1,8 +1,9 @@
 import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { readPdfText } from "./pdf-text";
+import { readPdfItems, readPdfText, type PdfTextItem } from "./pdf-text";
+import { pdfMarkdown } from "./pdf-markdown";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, PDFPageProxy, PageViewport, RenderTask, TextLayer } from "pdfjs-dist";
-import { bookUrl, saveReadingPage, type BookRecord, type ReadingContext } from "../api";
+import { bookUrl, comicPageUrl, saveBookMarkdown, saveReadingPage, type BookRecord, type ReadingContext } from "../api";
 import { clampPage, clampScale, parseBase64DataUrl, parseTextChapters, type TextChapter } from "../reader-state";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
@@ -33,6 +34,7 @@ type OutlineNode = {
 
 export type PdfReader = {
   open: (book: BookRecord) => Promise<number>;
+  currentFormat: () => string;
   openChapters: () => void;
   currentBook: () => BookRecord | undefined;
   currentPageContext: () => Promise<Pick<ReadingContext, "page" | "pageText" | "pageImage">>;
@@ -57,6 +59,8 @@ export function setupPdfReader(
   let pageHeight = 0;
   let saveTimer = 0;
   let textChapters: TextChapter[] = [];
+  let comicPages: string[] = [];
+  const pageCount = (): number => documentProxy?.numPages ?? (textChapters.length || comicPages.length);
   const pageElements = new Map<number, HTMLElement>();
   const renderTasks = new Map<number, RenderTask>();
   const textLayers = new Map<number, TextLayer>();
@@ -69,6 +73,11 @@ export function setupPdfReader(
   let captureCallback: ((context: ReadingContext) => void) | undefined;
   let gestureStartScale = 1;
   let touchStartDistance = 0;
+  // PDF 重排：原版不变，额外读取同名 .md 作为可调字体的文本版
+  let reflow = false;
+  const reflowToggle = document.querySelector<HTMLButtonElement>("#reflow-toggle");
+  const reflowUrl = (record: BookRecord): string => bookUrl(record).replace(/\.pdf$/i, ".md");
+  const reflowPosition = (bookId: string): string => `pdf-reflow-page:${bookId}`;
 
   const fontInput = document.querySelector<HTMLInputElement>("#reading-font-size")!;
   const lineInput = document.querySelector<HTMLSelectElement>("#reading-line-height")!;
@@ -113,7 +122,7 @@ export function setupPdfReader(
     elements.loading.hidden = true;
   };
   const updateControls = (): void => {
-    const total = documentProxy?.numPages ?? textChapters.length;
+    const total = pageCount();
     elements.pageInput.value = String(currentPage);
     elements.pageInput.max = String(Math.max(total, 1));
     elements.pageInput.disabled = total === 0;
@@ -125,6 +134,11 @@ export function setupPdfReader(
     elements.zoomIn.disabled = !documentProxy || scale >= 2.4;
     elements.zoomSlider.value = String(scale);
     elements.zoomLevel.textContent = `${Math.round(scale * 100)}%`;
+    if (reflowToggle) {
+      reflowToggle.hidden = !book || book.format !== "pdf";
+      reflowToggle.textContent = reflow ? "原版" : "重排";
+      reflowToggle.title = reflow ? "返回 PDF 原版排版" : "把 PDF 正文重排成可调字体的文本";
+    }
   };
   const pageElement = (page: number): HTMLElement | null =>
     pageElements.get(page) ?? null;
@@ -316,12 +330,17 @@ export function setupPdfReader(
     if (!book) return;
     window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => {
-      if (book) void saveReadingPage(book.id, currentPage).catch(showError);
+      // 重排位置只记在本地，避免覆盖 PDF 原版的阅读位置
+      if (!book) return;
+      if (reflow) localStorage.setItem(reflowPosition(book.id), String(currentPage));
+      else void saveReadingPage(book.id, currentPage).catch(showError);
     }, 350);
   };
   const flushPage = async (): Promise<void> => {
     window.clearTimeout(saveTimer);
-    if (book) await saveReadingPage(book.id, currentPage);
+    if (!book) return;
+    if (reflow) localStorage.setItem(reflowPosition(book.id), String(currentPage));
+    else await saveReadingPage(book.id, currentPage);
   };
   const updateCurrentPage = (): void => {
     const visible = [...visibility.entries()].filter(([, ratio]) => ratio > 0);
@@ -381,7 +400,7 @@ export function setupPdfReader(
     }
   };
   function goToPage(page: number, smooth = true): void {
-    const total = documentProxy?.numPages ?? textChapters.length;
+    const total = pageCount();
     if (!total) return;
     currentPage = clampPage(page, total);
     updateControls();
@@ -428,6 +447,41 @@ export function setupPdfReader(
     documentProxy = undefined;
     loadingTask = undefined;
     textChapters = [];
+    comicPages = [];
+  };
+
+  const buildImagePages = (urls: string[]): void => {
+    renderObserver?.disconnect();
+    positionObserver?.disconnect();
+    elements.pageStage.replaceChildren();
+    pageElements.clear();
+    visibility.clear();
+    const fragment = document.createDocumentFragment();
+    urls.forEach((url, index) => {
+      const pageNumber = index + 1;
+      const page = document.createElement("article");
+      page.className = "text-page reader-page image-page";
+      page.dataset.page = String(pageNumber);
+      const image = document.createElement("img");
+      image.src = url;
+      image.alt = `第 ${pageNumber} 页`;
+      image.loading = "lazy";
+      page.append(image);
+      pageElements.set(pageNumber, page);
+      fragment.append(page);
+    });
+    elements.pageStage.append(fragment);
+    positionObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          visibility.set(Number((entry.target as HTMLElement).dataset.page), entry.intersectionRatio);
+        }
+        updateCurrentPage();
+      },
+      { root: elements.reader, threshold: [0, 0.5, 1] },
+    );
+    for (const page of elements.pageStage.children) positionObserver.observe(page);
+    renderChapterButtons([]);
   };
 
   const buildTextPages = (chapters: TextChapter[]): void => {
@@ -469,19 +523,33 @@ export function setupPdfReader(
     })));
   };
 
-  const open = async (nextBook: BookRecord): Promise<number> => {
+  const openInternal = async (nextBook: BookRecord): Promise<number> => {
     setLoading(true);
-    await flushPage().catch(showError);
     await destroyDocument();
     book = nextBook;
     setChapterDrawerOpen(false);
     renderChapterButtons([]);
     try {
-      if (nextBook.format !== "pdf") {
+      if (nextBook.format === "cbz") {
         const response = await fetch(bookUrl(nextBook));
+        if (!response.ok) throw new Error(`无法读取漫画清单（${response.status}）`);
+        comicPages = (JSON.parse(await response.text()) as string[]).map((name) => comicPageUrl(nextBook, name));
+        currentPage = clampPage(nextBook.lastPage, comicPages.length);
+        scale = 1;
+        elements.emptyState.hidden = true;
+        elements.pageStage.hidden = false;
+        buildImagePages(comicPages);
+        setLoading(false);
+        updateControls();
+        goToPage(currentPage, false);
+        return comicPages.length;
+      }
+      if (nextBook.format !== "pdf" || reflow) {
+        const response = await fetch(nextBook.format === "pdf" ? reflowUrl(nextBook) : bookUrl(nextBook));
         if (!response.ok) throw new Error(`无法读取文本文件（${response.status}）`);
         textChapters = parseTextChapters(await response.text());
-        currentPage = clampPage(nextBook.lastPage, textChapters.length);
+        const saved = Number(localStorage.getItem(reflowPosition(nextBook.id)));
+        currentPage = clampPage(reflow && Number.isFinite(saved) && saved > 0 ? saved : nextBook.lastPage, textChapters.length);
         scale = 1;
         elements.emptyState.hidden = true;
         elements.pageStage.hidden = false;
@@ -518,6 +586,53 @@ export function setupPdfReader(
       throw error;
     }
   };
+  const open = async (nextBook: BookRecord): Promise<number> => {
+    await flushPage().catch(showError);
+    return openInternal(nextBook);
+  };
+  /** 首次切换时用 pdf.js 提取正文生成重排 Markdown，随后读取它作为文本版。 */
+  const generateMarkdown = async (record: BookRecord): Promise<void> => {
+    const source = documentProxy;
+    if (!source) throw new Error("请先打开 PDF 原版");
+    const total = source.numPages;
+    const pages: PdfTextItem[][] = [];
+    for (let page = 1; page <= total; page++) {
+      if (source !== documentProxy) throw new Error("PDF 已关闭，重排已中止");
+      if (reflowToggle) reflowToggle.textContent = `重排 ${Math.round((page / total) * 100)}%`;
+      // 每页之间让出主线程，长文档生成时界面仍然可响应
+      if (page % 8 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
+      pages.push(await readPdfItems(await source.getPage(page)));
+    }
+    const markdown = pdfMarkdown(pages);
+    if (!markdown.trim()) throw new Error("这份 PDF 没有可提取的文字，可能是扫描版");
+    await saveBookMarkdown(record.id, markdown);
+  };
+  const toggleReflow = async (): Promise<void> => {
+    if (!book || book.format !== "pdf") return;
+    const record = book;
+    const next = !reflow;
+    await flushPage().catch(showError);
+    try {
+      if (next) {
+        reflow = true;
+        updateControls();
+        if (reflowToggle) reflowToggle.disabled = true;
+        const response = await fetch(reflowUrl(record));
+        if (!response.ok) await generateMarkdown(record);
+      }
+      reflow = next;
+      await openInternal(record);
+      window.dispatchEvent(new Event("reader-mode-changed"));
+    } catch (error) {
+      reflow = false;
+      await openInternal(record).catch(() => undefined);
+      showError(error);
+    } finally {
+      if (reflowToggle) reflowToggle.disabled = false;
+      updateControls();
+    }
+  };
+  reflowToggle?.addEventListener("click", () => void toggleReflow());
   const capturedContext = (
     source: HTMLCanvasElement,
     page: number,
@@ -551,9 +666,21 @@ export function setupPdfReader(
     };
   };
 
+  /** 漫画页没有文本层，按当前页面图片提供伴读上下文。 */
+  const comicImage = (page: number): ReadingContext["image"] | undefined => {
+    const image = pageElement(page)?.querySelector("img");
+    if (!image?.naturalWidth) return undefined;
+    const ratio = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(image.naturalWidth * ratio);
+    canvas.height = Math.round(image.naturalHeight * ratio);
+    canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return capturedContext(canvas, page, { x: 0, y: 0, width: canvas.width, height: canvas.height })?.image;
+  };
+
   const readPage = async (bookId: string, page: number, maxChars = 20_000): Promise<{ page: number; text: string; truncated: boolean }> => {
     if (book?.id !== bookId) throw new Error("该请求的书籍已关闭或切换");
-    const total = documentProxy?.numPages ?? textChapters.length;
+    const total = pageCount();
     if (!Number.isInteger(page) || page < 1 || page > total) throw new Error("页码超出本书范围");
     const source = documentProxy;
     let text = textChapters[page - 1]?.body || "";
@@ -583,6 +710,7 @@ export function setupPdfReader(
     if (!book) return { page: currentPage };
     if (!documentProxy) {
       const text = textChapters[currentPage - 1]?.body || "";
+      if (!text && comicPages.length) return { page: currentPage, pageImage: comicImage(currentPage) };
       return {
         page: currentPage,
         pageText: text.length > 20_000 ? `${text.slice(0, 20_000)}\n[当前章节文本过长，已截断]` : text,
@@ -738,6 +866,8 @@ export function setupPdfReader(
   });
   return {
     open,
+    // 重排模式下批注按文本定位，避免锚点落到 PDF 原版页面上
+    currentFormat: () => (book?.format === "pdf" && reflow ? "md" : book?.format || "pdf"),
     openChapters: () => {
       if (!elements.chapterToggle.disabled) setChapterDrawerOpen(true);
     },

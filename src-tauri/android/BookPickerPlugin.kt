@@ -221,7 +221,22 @@ class BookPickerPlugin(private val activity: Activity) : Plugin(activity) {
         intent.type = "*/*"
         intent.putExtra(
             Intent.EXTRA_MIME_TYPES,
-            arrayOf("application/pdf", "text/plain", "text/markdown", "text/x-markdown", "application/epub+zip"),
+            arrayOf(
+                "application/pdf",
+                "text/plain",
+                "text/markdown",
+                "text/x-markdown",
+                "text/html",
+                "application/epub+zip",
+                "application/x-mobipocket-ebook",
+                "application/vnd.amazon.ebook",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/rtf",
+                "application/x-cbz",
+                "application/vnd.comicbook+zip",
+                "application/vnd.comicbook-rar",
+                "application/zip",
+            ),
         )
         startActivityForResult(invoke, intent, "bookPicked")
     }
@@ -241,7 +256,12 @@ class BookPickerPlugin(private val activity: Activity) : Plugin(activity) {
                     if (cursor.moveToFirst()) cursor.getString(0) else null
                 } ?: throw IllegalArgumentException()
                 val extension = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
-                require(extension in setOf("pdf", "txt", "md", "markdown", "epub"))
+                require(
+                    extension in setOf(
+                        "pdf", "txt", "md", "markdown", "epub", "fb2", "zip", "docx", "rtf",
+                        "mobi", "azw", "azw3", "html", "htm", "xhtml", "cbz", "cbr",
+                    ),
+                )
                 require(name.length <= 512)
                 val folder = File(activity.cacheDir, "imports")
                 folder.mkdirs()
@@ -268,7 +288,7 @@ class BookPickerPlugin(private val activity: Activity) : Plugin(activity) {
                 invoke.resolve(response)
             } catch (error: Exception) {
                 target?.delete()
-                invoke.reject("仅支持不超过 512 MB 的 PDF、TXT、Markdown 和 EPUB 文件")
+                invoke.reject("仅支持不超过 512 MB 的 PDF、TXT、Markdown、EPUB、FB2、DOCX、RTF、MOBI/AZW3、HTML 和 CBZ 文件")
             }
         }.start()
     }

@@ -3,7 +3,7 @@
 状态：首版架构定稿  
 日期：2026-09-02
 
-当前实现已覆盖 PDF、TXT、Markdown 与 EPUB 书库、页/章阅读位置、章节目录、文字/区域证据、流式伴读、记录与整本思考总结、FTS5 检索、Markdown 归档、本地 Git 历史和可选 DSH 阅读器插件。向量检索、OCR、区间总结属于后续里程碑。
+当前实现已覆盖 PDF、TXT、Markdown、EPUB、FB2、DOCX、RTF、MOBI/AZW3、HTML 与 CBZ/CBR（zip 打包）漫画书库、页/章阅读位置、章节目录、文字/区域证据、流式伴读、记录与整本思考总结、FTS5 检索、Markdown 归档、本地 Git 历史和可选 DSH 阅读器插件。向量检索、OCR、区间总结属于后续里程碑。
 
 ## 1. 产品定位
 
@@ -12,7 +12,7 @@ AI-eBook 不是在传统阅读器旁边附加聊天窗口，而是以阅读器�
 首版只服务桌面端个人使用场景：
 
 - 打开书籍后恢复到上次阅读位置。
-- PDF 使用内置书签作为章节目录；TXT、Markdown 与 EPUB 按常见标题格式生成可跳转目录。
+- PDF 使用内置书签作为章节目录，也可以生成重排文本按章节阅读；TXT、Markdown 与转换后的电子书按常见标题格式生成可跳转目录。
 - 阅读区底部的滑杆、加减按钮以及触摸板或触屏的双指手势均可调整页面缩放比例。
 - 使用可配置快捷键进入思考模式，通过键盘输入问题或理解。
 - 使用鼠标选择文字、图片或页面区域作为批注来源。
@@ -39,7 +39,8 @@ AI-eBook 不是在传统阅读器旁边附加聊天窗口，而是以阅读器�
 | 桌面容器 | Tauri 2 | macOS 首先验证，保留 Windows/Linux 构建能力 |
 | 前端 | TypeScript、原生 Web Components、CSS | 书架、阅读区、选择工具和 AI 侧栏 |
 | 本地核心 | Rust | 文件、数据库、Git、网络请求和安全边界 |
-| EPUB | Rust `zip` 解析与内置标签提取 | 导入时按 spine 顺序提取正文为章节 Markdown，复用文本阅读链路；MOBI/AZW3/FB2/CBZ 未支持 |
+| 电子书与文档 | Rust 解析后统一转成章节 Markdown | EPUB 按 spine、FB2 按 title、DOCX 按标题样式、MOBI/AZW3 按 PalmDOC/HUFF-CDIC 解压；RTF 与 HTML 只取正文 |
+| 漫画 | Rust `zip` 导出图片 | CBZ/CBR 导入时按文件名自然序导出图片，阅读区按页显示；RAR 压缩的 CBR 与 DJVU 未支持 |
 | PDF | PDF.js | 连续滚动、按需渲染、文本选择和区域截图 |
 | 纯文本 | 浏览器原生文本渲染 | TXT、Markdown 章节识别、连续阅读和文本选择 |
 | 状态与检索 | SQLite、FTS5 | 阅读状态、临时草稿和知识全文索引 |

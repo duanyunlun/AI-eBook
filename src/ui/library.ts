@@ -42,7 +42,7 @@ export function setupLibrary(
       const title = document.createElement("strong");
       title.textContent = book.title;
       const meta = document.createElement("span");
-      meta.textContent = `${book.format.toUpperCase()} · 第 ${book.lastPage} ${book.format === "pdf" ? "页" : "章"}`;
+      meta.textContent = `${book.format.toUpperCase()} · 第 ${book.lastPage} ${["pdf", "cbz"].includes(book.format) ? "页" : "章"}`;
       open.append(title, meta);
       open.addEventListener("click", () => {
         elements.libraryPanel.hidden = true;

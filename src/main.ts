@@ -82,7 +82,9 @@ const openBook = async (book: BookRecord): Promise<void> => {
     totalPages,
   });
   marginNotes.setBook(book);
+  marginNotes.setFormat(reader.currentFormat());
 };
+window.addEventListener("reader-mode-changed", () => marginNotes?.setFormat(reader.currentFormat()));
 const library = setupLibrary(
   elements,
   drawers.closeAll,
