@@ -2,6 +2,10 @@ use std::{collections::HashMap, fs::File, io::Read, path::Path};
 
 use zip::ZipArchive;
 
+use crate::markup;
+
+const HEADINGS: [&str; 6] = ["h1", "h2", "h3", "h4", "h5", "h6"];
+
 /// 单个 XHTML 文件的大小上限，避免异常文件占用过多内存。
 const PAGE_LIMIT: u64 = 16 * 1024 * 1024;
 /// 提取结果的大小上限，超出后停止追加后续章节。
@@ -29,17 +33,18 @@ pub fn extract_markdown(path: &Path) -> Result<String, String> {
         let Some(page) = read(&mut archive, &resolve(&base, href)) else {
             continue;
         };
-        chapter += 1;
-        let (title, body) = page_text(&page, chapter);
-        if body.is_empty() {
-            chapter -= 1;
-            continue;
+        for (title, body) in markup::chapters(&page, &HEADINGS) {
+            chapter += 1;
+            let title = if title.is_empty() {
+                format!("第 {chapter} 章")
+            } else {
+                title
+            };
+            output.push_str(&format!("# {title}\n\n{body}\n\n"));
+            if output.len() > OUTPUT_LIMIT {
+                break;
+            }
         }
-        output.push_str("# ");
-        output.push_str(&title);
-        output.push_str("\n\n");
-        output.push_str(&body);
-        output.push_str("\n\n");
         if output.len() > OUTPUT_LIMIT {
             break;
         }
@@ -175,184 +180,6 @@ fn percent_decode(source: &str) -> String {
         }
     }
     String::from_utf8_lossy(&output).into_owned()
-}
-
-/// 提取一章的标题与正文，块级标签转成换行，跳过脚本与样式。
-fn page_text(html: &str, chapter: usize) -> (String, String) {
-    let mut raw = String::new();
-    let mut heading = String::new();
-    let mut title: Option<String> = None;
-    let mut in_heading = false;
-    let mut skipped: Option<String> = None;
-    let mut rest = html;
-    while let Some(start) = rest.find('<') {
-        let text = &rest[..start];
-        if skipped.is_none() {
-            if in_heading {
-                heading.push_str(&decode(text));
-            } else {
-                raw.push_str(&decode(text));
-            }
-        }
-        let Some(end) = rest[start..].find('>') else {
-            break;
-        };
-        let tag = &rest[start + 1..start + end];
-        rest = &rest[start + end + 1..];
-        let closing = tag.starts_with('/');
-        let name = tag
-            .trim_start_matches('/')
-            .split(|character: char| character.is_whitespace() || character == '/')
-            .next()
-            .unwrap_or_default()
-            .to_ascii_lowercase();
-        if let Some(open) = &skipped {
-            if closing && *open == name {
-                skipped = None;
-            }
-            continue;
-        }
-        if !closing && matches!(name.as_str(), "head" | "script" | "style") {
-            skipped = Some(name);
-            continue;
-        }
-        if is_heading(&name) && !closing {
-            in_heading = true;
-            heading.clear();
-            continue;
-        }
-        if in_heading && closing && is_heading(&name) {
-            in_heading = false;
-            let value = paragraphs(&heading).join(" ");
-            if !value.is_empty() {
-                if title.is_none() {
-                    title = Some(value);
-                } else {
-                    raw.push_str(&value);
-                    raw.push('\n');
-                }
-            }
-            continue;
-        }
-        if in_heading {
-            continue;
-        }
-        if is_block(&name) {
-            raw.push('\n');
-        }
-    }
-    let body = paragraphs(&raw).join("\n\n");
-    let title = title.unwrap_or_else(|| format!("第 {chapter} 章"));
-    (title, body)
-}
-
-fn is_heading(name: &str) -> bool {
-    matches!(name, "h1" | "h2" | "h3" | "h4" | "h5" | "h6")
-}
-
-fn is_block(name: &str) -> bool {
-    matches!(
-        name,
-        "br" | "p"
-            | "div"
-            | "li"
-            | "ul"
-            | "ol"
-            | "tr"
-            | "td"
-            | "th"
-            | "table"
-            | "section"
-            | "article"
-            | "blockquote"
-            | "figure"
-            | "figcaption"
-            | "hr"
-            | "pre"
-            | "h1"
-            | "h2"
-            | "h3"
-            | "h4"
-            | "h5"
-            | "h6"
-    )
-}
-
-/// 合并空白字符，丢弃空行。
-fn paragraphs(source: &str) -> Vec<String> {
-    source
-        .lines()
-        .map(|line| line.split_whitespace().collect::<Vec<_>>().join(" "))
-        .filter(|line| !line.is_empty())
-        .collect()
-}
-
-fn decode(source: &str) -> String {
-    if !source.contains('&') {
-        return source.to_string();
-    }
-    let mut output = String::with_capacity(source.len());
-    let mut rest = source;
-    while let Some(start) = rest.find('&') {
-        output.push_str(&rest[..start]);
-        let tail = &rest[start..];
-        let entity = tail[..tail.len().min(12)]
-            .find(';')
-            .map(|end| (end, &tail[1..end]));
-        match entity.and_then(|(end, name)| entity_text(name).map(|text| (end, text))) {
-            Some((end, text)) => {
-                output.push_str(&text);
-                rest = &tail[end + 1..];
-            }
-            None => {
-                output.push('&');
-                rest = &tail[1..];
-            }
-        }
-    }
-    output.push_str(rest);
-    output
-}
-
-fn entity_text(entity: &str) -> Option<String> {
-    let character = match entity {
-        "amp" => '&',
-        "lt" => '<',
-        "gt" => '>',
-        "quot" => '"',
-        "apos" => '\'',
-        "nbsp" | "ensp" | "emsp" | "thinsp" => ' ',
-        "mdash" => '—',
-        "ndash" => '–',
-        "hellip" => '…',
-        "ldquo" => '“',
-        "rdquo" => '”',
-        "lsquo" => '‘',
-        "rsquo" => '’',
-        "middot" => '·',
-        "bull" => '•',
-        "laquo" => '«',
-        "raquo" => '»',
-        "copy" => '©',
-        "reg" => '®',
-        "trade" => '™',
-        "times" => '×',
-        "sect" => '§',
-        "deg" => '°',
-        "plusmn" => '±',
-        "yen" => '¥',
-        "euro" => '€',
-        "pound" => '£',
-        other => {
-            let number = other.strip_prefix('#')?;
-            let code = match number.strip_prefix(['x', 'X']) {
-                Some(hex) => u32::from_str_radix(hex, 16).ok()?,
-                None => number.parse().ok()?,
-            };
-            char::from_u32(code)?
-        }
-    };
-    Some(character.to_string())
 }
 
 #[cfg(test)]
