@@ -81,6 +81,7 @@ jobs:
           NO_STRIP: true
         with:
           tagName: ${{ !inputs.validation_only && inputs.tag || '' }}
+          releaseName: ${{ inputs.tag }}
           releaseDraft: true
           prerelease: true
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --config src-tauri/tauri.desktop.conf.json
