@@ -1,12 +1,16 @@
 pub mod ai;
 pub mod dsh;
+pub mod docx;
 pub mod epub;
+pub mod fb2;
 pub mod history;
 pub mod knowledge;
 pub mod library;
+pub mod markup;
 #[cfg(target_os = "android")]
 mod mobile;
 pub mod reader_runtime;
+pub mod rtf;
 pub mod storage;
 
 use ai::AiMessage;
