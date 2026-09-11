@@ -231,15 +231,22 @@ fn patch_attachment_module(source: &str, boundary: &str) -> Result<String, Strin
     let replacement = format!(
         "if (home !== {boundary} && !home.startsWith({boundary} + '/')) throw new Error('Attachment home is outside app data'); await ensureDurableDirectory(home, {boundary});"
     );
+    // 必需：附件目录必须落在应用私有目录内
+    if patched.matches(original).count() == 1 {
+        patched = patched.replacen(original, &replacement, 1);
+    } else if !patched.contains(&replacement) {
+        return Err("当前 DSH 附件模块尚未适配 Android，请安装兼容版本".into());
+    }
+    // 尽力而为：模块用硬链接落盘，Android 沙箱下 link 会失败，换成重命名并容忍 staging 文件已被移走
     for (before, after) in [
-        (original, replacement.as_str()),
         ("await link(temporary, target);", "await rename(temporary, target);"),
+        ("await link(source, target);", "await rename(source, target);"),
+        ("await link(staged.path, target);", "await rename(staged.path, target);"),
         ("await unlink(temporary);", "await unlink(temporary).catch(() => {});"),
+        ("await unlink(staged.path);", "await unlink(staged.path).catch(() => {});"),
     ] {
         if patched.matches(before).count() == 1 {
             patched = patched.replacen(before, after, 1);
-        } else if !patched.contains(after) {
-            return Err("当前 DSH 附件模块尚未适配 Android，请安装兼容版本".into());
         }
     }
     Ok(patched)
@@ -325,6 +332,20 @@ mod tests {
         assert!(!patched.contains("await link(temporary, target);"));
         // 重复打补丁应保持幂等
         assert_eq!(patch_attachment_module(&patched, "/data/user/0/app/files").unwrap(), patched);
+    }
+
+    /// 0.1.5-rc.2 的落盘函数，硬链接目标与 staging 路径都已改名
+    const UPSTREAM_NEW: &str = "async function ensureDurableHome(path) {\n\tconst home = resolve(path);\n\tif (!durableHomes.has(home)) {\n\t\tawait ensureDurableDirectory(home, parse(home).root);\n\t\tdurableHomes.add(home);\n\t}\n\treturn home;\n}\nasync function publishImmutableAlias(root, source, target, sha256) {\n\ttry { await link(source, target); } catch (error) {}\n}\nasync function publishStagedObject(root, target, staged) {\n\ttry { await link(staged.path, target); } catch (error) {}\n\tawait unlink(staged.path);\n\tawait chmod(target, 256);\n}\n";
+
+    #[test]
+    fn patches_new_layout_module() {
+        let patched = patch_attachment_module(UPSTREAM_NEW, "/data/user/0/app/files").unwrap();
+        assert!(patched.contains("Attachment home is outside app data"));
+        assert!(patched.contains("ensureDurableDirectory(home, \"/data/user/0/app/files\");"));
+        assert!(patched.contains("await rename(source, target);"));
+        assert!(patched.contains("await rename(staged.path, target);"));
+        assert!(patched.contains("await unlink(staged.path).catch(() => {});"));
+        assert!(!patched.contains("await link("));
     }
 
     #[test]
