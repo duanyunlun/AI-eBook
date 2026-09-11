@@ -70,6 +70,12 @@ export function apply(ctx) {
     if (event.type === 'turn/end') lastReason = event.data.reason;
     if (event.type === 'step/start' && ++stepCount > 20) handle?.agent.cancel({ kind: 'user' });
   });
+  // DSH 0.1.5 起正文增量改由 agent/assistant-stream 实时下发，assistant/chunk 会话事件被移除
+  ctx.on('agent/assistant-stream', ({ agent, frame }) => {
+    if (agent !== handle?.agent || frame.type !== 'chunk' || frame.chunk?.type !== 'text-delta') return;
+    lastText += frame.chunk.text;
+    transport.notify('reader/delta', { text: frame.chunk.text });
+  });
   transport.onRequest(async (method, params) => {
     if (method === 'reader/hello') {
       await ctx.get('loader')?.await();

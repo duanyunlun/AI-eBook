@@ -5,5 +5,5 @@
   "main": "index.mjs",
   "files": ["index.mjs", "cordis.patch.yml"],
   "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
-  "aiEbook": { "bridgeVersion": 1, "dshVersions": ["0.1.2-rc.1"] }
+  "aiEbook": { "bridgeVersion": 1, "dshVersions": ["0.1.5-rc.1", "0.1.2-rc.1"] }
 }
