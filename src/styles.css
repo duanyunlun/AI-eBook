@@ -763,6 +763,10 @@ button:disabled {
   color: var(--subtle);
   cursor: pointer;
   font-size: calc(17px * var(--ui-font-scale));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .selection-clear:hover,
@@ -2619,15 +2623,19 @@ body.is-resizing-question * {
 }
 
 .zoom-slider button {
+  display: inline-flex;
   width: 22px;
   height: 24px;
   padding: 0;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 3px;
   color: var(--muted);
   background: transparent;
   cursor: pointer;
   font-size: calc(16px * var(--ui-font-scale));
+  line-height: 1;
 }
 
 .zoom-slider button:hover:not(:disabled) {
@@ -2652,7 +2660,7 @@ body.is-resizing-question * {
 
 .drawer-close { display: none; }
 @media (max-width: 700px), (hover: none) {
-  .drawer-close { display: inline-grid; flex: none; }
+  .drawer-close { display: inline-flex; flex: none; }
   #left-drawer-close { align-self: flex-end; }
   .drawer-trigger { top: 8px; bottom: auto; width: 44px; height: 44px; background: var(--surface-raised); color: var(--text); border: 1px solid var(--border); border-radius: 6px; }
   .left-drawer-trigger { left: 8px; }
