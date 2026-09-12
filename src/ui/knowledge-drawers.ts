@@ -17,6 +17,8 @@ export function setupKnowledgeDrawers(
 ): KnowledgeDrawerController {
   let leftTimer = 0;
   let rightTimer = 0;
+  let leftPinned = false;
+  let rightPinned = false;
 
   const setOpen = (
     drawer: HTMLElement,
@@ -26,20 +28,26 @@ export function setupKnowledgeDrawers(
     if (!open && drawer.contains(document.activeElement) && document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
+    if (!open) {
+      if (drawer === elements.knowledgeLeftDrawer) leftPinned = false;
+      else rightPinned = false;
+    }
     drawer.setAttribute("aria-hidden", String(!open));
     drawer.inert = !open;
     trigger.hidden = open;
     trigger.setAttribute("aria-expanded", String(open));
   };
-  const openLeft = (): void => {
+  const openLeft = (pinned = true): void => {
     window.clearTimeout(leftTimer);
     setOpen(elements.knowledgeDetailDrawer, elements.knowledgeDetailTrigger, false);
     setOpen(elements.knowledgeLeftDrawer, elements.knowledgeLeftTrigger, true);
+    leftPinned = pinned;
   };
-  const openDetail = (): void => {
+  const openDetail = (pinned = true): void => {
     window.clearTimeout(rightTimer);
     setOpen(elements.knowledgeLeftDrawer, elements.knowledgeLeftTrigger, false);
     setOpen(elements.knowledgeDetailDrawer, elements.knowledgeDetailTrigger, true);
+    rightPinned = pinned;
   };
   const closeAll = (): void => {
     window.clearTimeout(leftTimer);
@@ -51,7 +59,10 @@ export function setupKnowledgeDrawers(
     if (window.matchMedia("(hover: none)").matches) return;
     const timer = side === "left" ? leftTimer : rightTimer;
     window.clearTimeout(timer);
-    const next = window.setTimeout(side === "left" ? openLeft : openDetail, 150);
+    const next = window.setTimeout(() => {
+      if (side === "left") openLeft(false);
+      else openDetail(false);
+    }, 150);
     if (side === "left") leftTimer = next;
     else rightTimer = next;
   };
@@ -61,15 +72,15 @@ export function setupKnowledgeDrawers(
     const next = window.setTimeout(() => {
       const drawer = side === "left" ? elements.knowledgeLeftDrawer : elements.knowledgeDetailDrawer;
       const trigger = side === "left" ? elements.knowledgeLeftTrigger : elements.knowledgeDetailTrigger;
-      if (drawer.contains(document.activeElement) || document.body.classList.contains("is-resizing-drawer")) return;
+      if ((side === "left" ? leftPinned : rightPinned) || drawer.contains(document.activeElement) || document.body.classList.contains("is-resizing-drawer")) return;
       setOpen(drawer, trigger, false);
     }, 300);
     if (side === "left") leftTimer = next;
     else rightTimer = next;
   };
 
-  elements.knowledgeLeftTrigger.addEventListener("click", openLeft);
-  elements.knowledgeDetailTrigger.addEventListener("click", openDetail);
+  elements.knowledgeLeftTrigger.addEventListener("click", () => openLeft());
+  elements.knowledgeDetailTrigger.addEventListener("click", () => openDetail());
   elements.knowledgeLeftTrigger.addEventListener("pointerenter", () => openSoon("left"));
   elements.knowledgeLeftTrigger.addEventListener("pointerleave", () => closeSoon("left"));
   elements.knowledgeDetailTrigger.addEventListener("pointerenter", () => openSoon("right"));
