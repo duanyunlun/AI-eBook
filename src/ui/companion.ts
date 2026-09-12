@@ -875,6 +875,7 @@ export function setupCompanion(
   document.addEventListener("contextmenu", (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target || target.closest("input, textarea, [contenteditable='true']")) return;
+    if (target.closest("#knowledge-panel")) return;
     const image = target.closest<HTMLImageElement>("img");
     const selectedText = window.getSelection()?.toString().replace(/\s+/g, " ").trim() || "";
     const readerPage = target.closest<HTMLElement>(".reader-page");

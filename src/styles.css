@@ -2131,6 +2131,7 @@ body.is-resizing-question * {
 }
 
 .knowledge-list button {
+  user-select: none;
   display: flex;
   width: 100%;
   min-height: 58px;
