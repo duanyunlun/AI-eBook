@@ -39,6 +39,8 @@ struct PublicProviderConfig {
     base_url: String,
     model: String,
     max_output_tokens: u32,
+    #[serde(default)]
+    reasoning_effort: Option<String>,
 }
 
 #[derive(Deserialize)]

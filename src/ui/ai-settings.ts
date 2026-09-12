@@ -12,6 +12,7 @@ export type ProviderSettings = {
   baseUrl: string;
   model: string;
   maxOutputTokens: number;
+  reasoningEffort: "off" | "low" | "medium" | "high" | "xhigh" | "max";
 };
 
 type AiSettings = ProviderSettings & { systemPrompt: string };
@@ -55,6 +56,9 @@ function getStoredSettings(): AiSettings {
           && Number(stored.maxOutputTokens) <= 131072
           ? Number(stored.maxOutputTokens)
           : defaultMaxOutputTokens,
+        reasoningEffort: ["off", "low", "medium", "high", "xhigh", "max"].includes(stored.reasoningEffort as string)
+          ? stored.reasoningEffort as ProviderSettings["reasoningEffort"]
+          : "off",
         systemPrompt: stored.systemPrompt?.trim() || defaultSystemPrompt,
       };
     }
@@ -66,6 +70,7 @@ function getStoredSettings(): AiSettings {
     baseUrl: defaultBaseUrls.open_ai_chat_completions,
     model: "",
     maxOutputTokens: defaultMaxOutputTokens,
+    reasoningEffort: "off",
     systemPrompt: defaultSystemPrompt,
   };
 }
@@ -104,6 +109,7 @@ export function setupAiSettings(
   const baseUrl = get<HTMLInputElement>("#ai-base-url");
   const model = get<HTMLInputElement>("#ai-model");
   const maxOutputTokens = get<HTMLInputElement>("#ai-max-output-tokens");
+  const reasoningEffort = get<HTMLSelectElement>("#ai-reasoning-effort");
   const translationLanguage = get<HTMLSelectElement>("#translation-language");
   const systemPrompt = get<HTMLTextAreaElement>("#ai-system-prompt");
   get<HTMLButtonElement>("#reset-system-prompt").addEventListener("click", () => {
@@ -155,6 +161,7 @@ export function setupAiSettings(
     baseUrl: baseUrl.value.trim(),
     model: model.value.trim(),
     maxOutputTokens: Number(maxOutputTokens.value),
+    reasoningEffort: reasoningEffort.value as ProviderSettings["reasoningEffort"],
     systemPrompt: getCompanionSystemPrompt(),
   });
   const providerValues = (): ProviderSettings => {
@@ -203,6 +210,7 @@ export function setupAiSettings(
   baseUrl.value = initial.baseUrl;
   model.value = initial.model;
   maxOutputTokens.value = String(initial.maxOutputTokens);
+  reasoningEffort.value = initial.reasoningEffort;
   translationLanguage.value = getTranslationLanguage();
   systemPrompt.value = initial.systemPrompt;
   dshRegistry.value = localStorage.getItem(dshRegistryKey) || defaultDshRegistry;

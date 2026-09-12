@@ -330,6 +330,17 @@ export function mountShell(app: HTMLElement): ShellElements {
                 <input id="ai-max-output-tokens" type="number" min="1" max="131072" step="1" required />
               </label>
               <label>
+                <span>思考强度</span>
+                <select id="ai-reasoning-effort">
+                  <option value="off">关闭</option>
+                  <option value="low">低</option>
+                  <option value="medium">中</option>
+                  <option value="high">高</option>
+                  <option value="xhigh">极高</option>
+                  <option value="max">最高</option>
+                </select>
+              </label>
+              <label>
                 <span>API Key</span>
                 <input id="ai-api-key" type="password" autocomplete="off" spellcheck="false" />
               </label>
